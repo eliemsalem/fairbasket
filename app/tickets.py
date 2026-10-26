@@ -20,7 +20,11 @@ TYPES_ACCEPTES = {"application/pdf": "pdf", "image/jpeg": "photo", "image/png": 
 
 
 class TicketRefuse(Exception):
-    """Ticket non enregistre, avec un message a montrer a l'utilisateur."""
+    """Ticket non enregistre, avec un message a montrer a l'utilisateur (cle de traduction + valeurs)."""
+
+    def __init__(self, cle: str, **valeurs):
+        super().__init__(cle.format(**valeurs))
+        self.cle, self.valeurs = cle, valeurs
 
 
 @dataclass
@@ -36,7 +40,8 @@ def _dec(v) -> Optional[Decimal]:
 def tickets_ce_mois(db: Session, user: User) -> int:
     debut = now().replace(day=1, hour=0, minute=0, second=0, microsecond=0)
     return db.scalar(select(func.count()).select_from(Receipt).where(Receipt.user_id == user.id,
-                                                                      Receipt.created_at >= debut))
+                                                                      Receipt.created_at >= debut,
+                                                                      Receipt.importe.is_(False)))
 
 
 # formats de magasin ramenes a leur enseigne : « Carrefour City » est un magasin Carrefour
@@ -104,15 +109,15 @@ def _date_achat(d: dict) -> Optional[datetime]:
 
 
 def enregistrer_ticket(db: Session, user: User, data: bytes, fichier_nom: str, media_type: str,
-                       lire: Optional[Callable[[bytes, str], Lecture]] = None) -> Resultat:
+                       lire: Optional[Callable[[bytes, str], Lecture]] = None, importe: bool = False) -> Resultat:
     if media_type not in TYPES_ACCEPTES:
         raise TicketRefuse("Format non pris en charge : envoyez un PDF ou une photo (JPEG, PNG).")
     sha = hashlib.sha256(data).hexdigest()
     existant = db.scalar(select(Receipt).where(Receipt.user_id == user.id, Receipt.file_sha256 == sha))
     if existant:
         return Resultat(existant, doublon=True)
-    if tickets_ce_mois(db, user) >= config.MAX_TICKETS_PAR_MOIS:
-        raise TicketRefuse(f"Limite de {config.MAX_TICKETS_PAR_MOIS} tickets par mois atteinte.")
+    if not importe and tickets_ce_mois(db, user) >= config.MAX_TICKETS_PAR_MOIS:
+        raise TicketRefuse("Limite de {n} tickets par mois atteinte.", n=config.MAX_TICKETS_PAR_MOIS)
 
     try:
         lecture = (lire or lire_ticket)(data, media_type)
@@ -150,7 +155,7 @@ def enregistrer_ticket(db: Session, user: User, data: bytes, fichier_nom: str, m
     receipt = Receipt(
         user_id=user.id, store=store, achete_le=achete_le, total=total, somme_articles=somme,
         remises_globales=remises, statut=statut, remarques=(d.get("remarques") or None),
-        source=TYPES_ACCEPTES[media_type], fichier_nom=fichier_nom[:200], file_sha256=sha,
+        source=TYPES_ACCEPTES[media_type], importe=importe, fichier_nom=fichier_nom[:200], file_sha256=sha,
         modele=lecture.modele, tokens_entree=lecture.tokens_entree, tokens_sortie=lecture.tokens_sortie,
         items=items,
     )

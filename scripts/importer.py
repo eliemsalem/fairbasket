@@ -32,7 +32,6 @@ def main(email, fichiers):
     user = db.scalar(select(User).where(User.email == email.lower()))
     if user is None:
         sys.exit(f"Aucun compte pour {email} : inscrivez-vous d'abord.")
-    config.MAX_TICKETS_PAR_MOIS = 10_000  # import de l'historique : pas de quota
     connus = totaux_connus()
     with ThreadPoolExecutor(max_workers=4) as pool:
         lectures = list(pool.map(_lire, [Path(f) for f in fichiers]))
@@ -48,7 +47,8 @@ def main(email, fichiers):
         cout += lecture.tokens_entree / 1e6 * pe + lecture.tokens_sortie / 1e6 * ps
         media = mimetypes.guess_type(p.name)[0]
         try:
-            res = tickets.enregistrer_ticket(db, user, p.read_bytes(), p.name, media, lire=lambda d, m: lecture)
+            res = tickets.enregistrer_ticket(db, user, p.read_bytes(), p.name, media, lire=lambda d, m: lecture,
+                                             importe=True)
         except tickets.TicketRefuse as e:
             bilan["refus"] += 1
             print(f"REFUS {p.name} : {e}")

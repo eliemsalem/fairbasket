@@ -1,41 +1,49 @@
 {% extends "base.html" %}
-{% block title %}FairBasket — Profil{% endblock %}
+{% block title %}FairBasket — {{ _("Profil") }}{% endblock %}
 {% block body %}
 <main class="screen with-nav" style="gap:22px">
-  <h1 style="font-size:24px">Profil</h1>
+  <h1 style="font-size:24px">{{ _("Profil") }}</h1>
   <div style="display:flex;align-items:center;gap:14px">
     <span style="width:52px;height:52px;border-radius:26px;background:var(--fg);color:var(--on-fg);display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:700">{{ user.prenom[:1]|upper }}</span>
     <div><strong style="font-size:17px">{{ user.prenom }}</strong><br><span class="small">{{ user.email }}</span></div>
   </div>
   <div class="card" style="display:flex;flex-direction:column;gap:8px">
-    <div style="display:flex;justify-content:space-between;font-size:14px"><strong>Tickets lus ce mois</strong><span class="mono">{{ utilises }} / {{ maximum }}</span></div>
+    <div style="display:flex;justify-content:space-between;font-size:14px"><strong>{{ _("Tickets lus ce mois") }}</strong><span class="mono">{{ utilises }} / {{ maximum }}</span></div>
     <div style="height:6px;border-radius:3px;background:var(--line);overflow:hidden"><div style="width:{{ (utilises * 100 // maximum) if maximum else 0 }}%;height:100%;background:var(--fg)"></div></div>
   </div>
 
+  <section style="display:flex;flex-direction:column;gap:10px">
+    <span class="eyebrow">{{ _("Langue") }}</span>
+    <div class="seg" role="group" aria-label="{{ _('Langue') }}">
+      <a style="flex:1;justify-content:center" href="/langue/fr?retour=/profil" lang="fr" {% if lang == 'fr' %}aria-current="true"{% endif %}>Français</a>
+      <a style="flex:1;justify-content:center" href="/langue/en?retour=/profil" lang="en" {% if lang == 'en' %}aria-current="true"{% endif %}>English</a>
+    </div>
+  </section>
+
   <section style="display:flex;flex-direction:column;gap:12px">
-    <span class="eyebrow">Mes accords</span>
-    <div style="font-size:14px;line-height:1.45"><strong>Lecture des tickets par l'IA</strong><br><span class="small">Nécessaire pour ajouter des tickets. Accepté le {{ user.ia_consent_at.strftime('%d/%m/%Y') }}.</span></div>
+    <span class="eyebrow">{{ _("Mes accords") }}</span>
+    <div style="font-size:14px;line-height:1.45"><strong>{{ _("Lecture des tickets par l'IA") }}</strong><br><span class="small">{{ _("Nécessaire pour ajouter des tickets. Accepté le {date}.", date=user.ia_consent_at.strftime('%d/%m/%Y')) }}</span></div>
     <form method="post" action="/profil/partage" style="gap:10px">
-      <label class="check"><input type="checkbox" name="partage" value="1" {% if user.partage_consent %}checked{% endif %} onchange="this.form.submit()"><span><strong>Partager mes prix anonymement</strong><br><span class="small">Produit, magasin, prix et jour. Jamais votre identité.{% if user.partage_consent_at %} Activé le {{ user.partage_consent_at.strftime('%d/%m/%Y') }}.{% endif %}</span></span></label>
-      <noscript><button class="btn ghost" type="submit">Enregistrer</button></noscript>
+      <label class="check"><input type="checkbox" name="partage" value="1" {% if user.partage_consent %}checked{% endif %} onchange="this.form.submit()"><span><strong>{{ _("Partager mes prix anonymement") }}</strong><br><span class="small">{{ _("Produit, magasin, prix et jour. Jamais votre identité.") }}{% if user.partage_consent_at %} {{ _("Activé le {date}.", date=user.partage_consent_at.strftime('%d/%m/%Y')) }}{% endif %}</span></span></label>
+      <noscript><button class="btn ghost" type="submit">{{ _("Enregistrer") }}</button></noscript>
     </form>
   </section>
 
   <section style="display:flex;flex-direction:column;gap:10px">
-    <span class="eyebrow">Mes données</span>
-    <a class="btn ghost" href="/profil/export.csv">Exporter mes {{ nb_tickets }} tickets (CSV)</a>
+    <span class="eyebrow">{{ _("Mes données") }}</span>
+    <a class="btn ghost" href="/profil/export.csv">{{ _("Exporter mes {n} tickets (CSV)", n=nb_tickets) }}</a>
     <details class="card" style="border-color:var(--danger)">
-      <summary style="cursor:pointer;color:var(--danger);font-weight:600">Supprimer toutes mes données</summary>
+      <summary style="cursor:pointer;color:var(--danger);font-weight:600">{{ _("Supprimer toutes mes données") }}</summary>
       <form method="post" action="/profil/supprimer" style="gap:10px;margin-top:12px">
-        <p class="small" style="color:var(--fg)">Vos tickets, leurs fichiers et votre compte seront supprimés définitivement. Les prix déjà partagés de façon anonyme restent, sans lien avec vous.</p>
-        <div class="field"><label for="confirmation">Tapez SUPPRIMER pour confirmer</label><input id="confirmation" name="confirmation" type="text" autocomplete="off" required></div>
-        <button class="btn" type="submit" style="background:var(--danger);color:#fff">Tout supprimer</button>
+        <p class="small" style="color:var(--fg)">{{ _("Vos tickets, leurs fichiers et votre compte seront supprimés définitivement. Les prix déjà partagés de façon anonyme restent, sans lien avec vous.") }}</p>
+        <div class="field"><label for="confirmation">{{ _("Tapez SUPPRIMER pour confirmer") }}</label><input id="confirmation" name="confirmation" type="text" autocomplete="off" required></div>
+        <button class="btn" type="submit" style="background:var(--danger);color:#fff">{{ _("Tout supprimer") }}</button>
       </form>
     </details>
   </section>
 
-  <form method="post" action="/deconnexion"><button class="btn ghost" type="submit">Se déconnecter</button></form>
-  <p class="small center"><a href="#">Mentions légales</a> · <a href="#">Confidentialité</a> · <a href="#">Conditions</a></p>
+  <form method="post" action="/deconnexion"><button class="btn ghost" type="submit">{{ _("Se déconnecter") }}</button></form>
+  <p class="small center"><a href="#">{{ _("Mentions légales") }}</a> · <a href="#">{{ _("Confidentialité") }}</a> · <a href="#">{{ _("Conditions") }}</a></p>
 </main>
 {% with actif='profil' %}{% include "_nav.html" %}{% endwith %}
 {% endblock %}

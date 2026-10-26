@@ -181,3 +181,14 @@ def test_formats_ramenes_a_l_enseigne():
     assert enseigne_canonique("MONOPRIX") == "Monoprix"
     assert enseigne_canonique("picard") == "Picard"
     assert enseigne_canonique("Grand Frais") == "Grand Frais"
+
+
+def test_import_hors_quota(db, monkeypatch):
+    from app.tickets import tickets_ce_mois
+    monkeypatch.setattr(config, "MAX_TICKETS_PAR_MOIS", 1)
+    u = nouvel_utilisateur(db, "a@x.fr")
+    for i in range(3):
+        d = {**ALDI, "heure": f"1{i}:00"}
+        enregistrer_ticket(db, u, f"h{i}".encode(), "t.pdf", "application/pdf", lire=fausse_lecture(d), importe=True)
+    assert tickets_ce_mois(db, u) == 0
+    enregistrer_ticket(db, u, b"nouveau", "t.pdf", "application/pdf", lire=fausse_lecture({**ALDI, "heure": "20:00"}))

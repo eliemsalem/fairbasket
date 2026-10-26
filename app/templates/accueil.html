@@ -1,81 +1,81 @@
 {% extends "base.html" %}
-{% block title %}FairBasket — Accueil{% endblock %}
+{% block title %}FairBasket — {{ _("Accueil") }}{% endblock %}
 {% block body %}
 <main class="screen with-nav" style="gap:22px">
   <div style="display:flex;justify-content:space-between;align-items:center;gap:12px">
-    <h1 style="font-size:24px">Bonjour {{ user.prenom }}</h1>
-    <div class="seg" role="group" aria-label="Période">
-      <a href="/accueil?periode=mois" {% if t.periode == 'mois' %}aria-current="true"{% endif %}>Ce mois</a>
-      <a href="/accueil?periode=an" {% if t.periode == 'an' %}aria-current="true"{% endif %}>12 mois</a>
+    <h1 style="font-size:24px">{{ _("Bonjour {prenom}", prenom=user.prenom) }}</h1>
+    <div class="seg" role="group" aria-label="{{ _('Période') }}">
+      <a href="/accueil?periode=mois" {% if t.periode == 'mois' %}aria-current="true"{% endif %}>{{ _("Ce mois") }}</a>
+      <a href="/accueil?periode=an" {% if t.periode == 'an' %}aria-current="true"{% endif %}>{{ _("12 mois") }}</a>
     </div>
   </div>
 
   {% if a_corriger %}
-  <a class="card" href="/tickets/{{ a_corriger[0].id }}" style="text-decoration:none;border:2px solid var(--fg)"><strong>{{ a_corriger|length }} ticket{{ 's' if a_corriger|length > 1 }} à vérifier</strong><br><span class="small">La somme des articles ne correspond pas au total.</span></a>
+  <a class="card" href="/tickets/{{ a_corriger[0].id }}" style="text-decoration:none;border:2px solid var(--fg)"><strong>{{ _("{n} ticket(s) à vérifier", n=a_corriger|length) }}</strong><br><span class="small">{{ _("La somme des articles ne correspond pas au total.") }}</span></a>
   {% endif %}
 
   <div style="display:flex;flex-direction:column;gap:4px">
-    <span class="small"><strong>{{ t.libelle_periode }}</strong></span>
+    <span class="small"><strong>{% if t.periode == 'mois' %}{{ mois(t.debut)|capitalize }}{% else %}{{ mois(t.debut)|capitalize }} – {{ mois(t.fin) }}{% endif %}</strong></span>
     <span class="mono" style="font-size:44px;line-height:1;font-weight:700;letter-spacing:-.03em">{{ t.total|euros }}</span>
-    {% if t.evolution is not none %}<span class="small">{{ '+' if t.evolution > 0 }}{{ t.evolution }} % {{ t.libelle_comparaison }}</span>{% endif %}
+    {% if t.evolution is not none %}<span class="small">{{ '+' if t.evolution > 0 }}{{ t.evolution }} % {% if t.periode == 'mois' %}{{ _("par rapport à {mois}", mois=mois(t.debut_prec, avec_annee=False)) }}{% else %}{{ _("par rapport aux 12 mois précédents") }}{% endif %}</span>{% endif %}
   </div>
 
   {% if t.nb_tickets == 0 and not recents %}
-    <div class="card"><p class="lede" style="margin:0">Pas encore de ticket. Appuyez sur <strong>+</strong> pour ajouter le premier : vos dépenses s'afficheront ici.</p></div>
+    <div class="card"><p class="lede" style="margin:0">{{ _("Pas encore de ticket. Appuyez sur + pour ajouter le premier : vos dépenses s'afficheront ici.") }}</p></div>
   {% else %}
   <div class="tiles">
-    <div class="card"><span class="small"><strong>Tickets</strong></span><br><span class="mono" style="font-size:22px;font-weight:700">{{ t.nb_tickets }}</span></div>
-    <div class="card"><span class="small"><strong>Panier moyen</strong></span><br><span class="mono" style="font-size:22px;font-weight:700">{{ t.panier_moyen|euros }}</span></div>
+    <div class="card"><span class="small"><strong>{{ _("Tickets") }}</strong></span><br><span class="mono" style="font-size:22px;font-weight:700">{{ t.nb_tickets }}</span></div>
+    <div class="card"><span class="small"><strong>{{ _("Panier moyen") }}</strong></span><br><span class="mono" style="font-size:22px;font-weight:700">{{ t.panier_moyen|euros }}</span></div>
   </div>
 
   <section style="display:flex;flex-direction:column;gap:10px">
-    <h2>Dépenses par mois</h2>
-    <div class="bars" role="img" aria-label="Dépenses des 12 derniers mois">
-      {% for m in t.mois %}<div title="{{ m.titre }} : {{ m.valeur|euros }}"><div style="height:{{ m.hauteur }}px" class="{{ 'on' if m.courant }}"></div></div>{% endfor %}
+    <h2>{{ _("Dépenses par mois") }}</h2>
+    <div class="bars" role="img" aria-label="{{ _('Dépenses des 12 derniers mois') }}">
+      {% for m in t.mois %}<div title="{{ mois(m.date) }} : {{ m.valeur|euros }}"><div style="height:{{ m.hauteur }}px" class="{{ 'on' if m.courant }}"></div></div>{% endfor %}
     </div>
-    <div class="bars-labels" aria-hidden="true">{% for m in t.mois %}<span>{{ m.lettre }}</span>{% endfor %}</div>
+    <div class="bars-labels" aria-hidden="true">{% for m in t.mois %}<span>{{ mois(m.date, court=True) }}</span>{% endfor %}</div>
   </section>
 
   {% if t.enseignes %}
   <section style="display:flex;flex-direction:column;gap:10px">
-    <h2>Par enseigne</h2>
+    <h2>{{ _("Par enseigne") }}</h2>
     <div class="stack" aria-hidden="true">{% for e in t.enseignes %}<span style="width:{{ e.part }}%;background:{{ e.nom|couleur }}"></span>{% endfor %}</div>
-    <div class="legend">{% for e in t.enseignes %}<span><span class="dot" style="width:8px;height:8px;background:{{ e.nom|couleur }}"></span>{{ e.nom }} · {{ e.total|euros }}</span>{% endfor %}</div>
+    <div class="legend">{% for e in t.enseignes %}<span><span class="dot" style="width:8px;height:8px;background:{{ e.nom|couleur }}"></span>{{ _(e.nom) }} · {{ e.total|euros }}</span>{% endfor %}</div>
   </section>
   {% endif %}
 
   {% if t.categories %}
   <section style="display:flex;flex-direction:column;gap:8px">
-    <h2>Par rayon</h2>
+    <h2>{{ _("Par rayon") }}</h2>
     {% for c in t.categories %}
-      <div class="hbar"><span class="lbl">{{ c.nom }}</span><span class="track"><span style="width:{{ c.part }}%"></span></span><span class="mono val">{{ c.total|euros }}</span></div>
+      <div class="hbar"><span class="lbl">{{ _(c.nom) }}</span><span class="track"><span style="width:{{ c.part }}%"></span></span><span class="mono val">{{ c.total|euros }}</span></div>
     {% endfor %}
   </section>
   {% endif %}
 
   {% if t.alertes %}
   <section style="display:flex;flex-direction:column;gap:10px">
-    <h2>À savoir</h2>
+    <h2>{{ _("À savoir") }}</h2>
     {% for a in t.alertes %}
-      <div class="card"><span class="eyebrow">Moins cher ailleurs</span><br>{{ a.produit }} : <strong>{{ a.prix|euros }}</strong> chez {{ a.enseigne }}, contre {{ a.prix_habituel|euros }} chez {{ a.habituelle }}.</div>
+      <div class="card"><span class="eyebrow">{{ _("Moins cher ailleurs") }}</span><br>{{ _("{produit} : {prix} chez {enseigne}, contre {prix_habituel} chez {habituelle}.", produit=a.produit, prix=a.prix|euros, enseigne=a.enseigne, prix_habituel=a.prix_habituel|euros, habituelle=a.habituelle) }}</div>
     {% endfor %}
   </section>
   {% endif %}
 
   {% if t.produits %}
   <section style="display:flex;flex-direction:column;gap:8px">
-    <h2>Vos premiers postes</h2>
-    <div class="rows">{% for p in t.produits %}<div class="row"><span class="grow">{{ p.nom }}<br><span class="small">{{ p.achats }} achat{{ 's' if p.achats > 1 }}</span></span><span class="mono">{{ p.total|euros }}</span></div>{% endfor %}</div>
+    <h2>{{ _("Vos premiers postes") }}</h2>
+    <div class="rows">{% for p in t.produits %}<div class="row"><span class="grow">{{ p.nom }}<br><span class="small">{{ _("{n} achat(s)", n=p.achats) }}</span></span><span class="mono">{{ p.total|euros }}</span></div>{% endfor %}</div>
   </section>
   {% endif %}
 
   <section id="tickets" style="display:flex;flex-direction:column;gap:8px">
-    <h2>Derniers tickets</h2>
+    <h2>{{ _("Derniers tickets") }}</h2>
     <div class="rows">
     {% for r in recents %}
       <a class="row" href="/tickets/{{ r.id }}">
         <span class="dot" style="background:{{ (r.store.enseigne if r.store else '')|couleur }}"></span>
-        <span class="grow"><strong>{{ r.store.enseigne if r.store else 'Ticket' }}</strong><br><span class="small">{{ r.achete_le.strftime('%d/%m/%Y') if r.achete_le else 'date inconnue' }}{% if r.statut == 'ecart' %} · à vérifier{% endif %}</span></span>
+        <span class="grow"><strong>{{ _(r.store.enseigne) if r.store else _("Ticket") }}</strong><br><span class="small">{{ r.achete_le.strftime('%d/%m/%Y') if r.achete_le else _("date inconnue") }}{% if r.statut == 'ecart' %} · {{ _("à vérifier") }}{% endif %}</span></span>
         <span class="mono">{{ r.total|euros }}</span>
       </a>
     {% endfor %}
@@ -83,7 +83,7 @@
   </section>
   {% endif %}
 
-  {% if admin %}<a class="btn ghost" href="/admin">Administration · liste d'attente</a>{% endif %}
+  {% if admin %}<a class="btn ghost" href="/admin">{{ _("Administration · liste d'attente") }}</a>{% endif %}
 </main>
 {% with actif='accueil' %}{% include "_nav.html" %}{% endwith %}
 {% endblock %}

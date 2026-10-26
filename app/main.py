@@ -17,7 +17,7 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
-from . import auth, config, liste, stats, tickets
+from . import auth, config, i18n, liste, stats, tickets
 from .db import get_db, init_db
 from .models import Product, Receipt, ReceiptItem, ShoppingItem, Store, User, now
 
@@ -59,8 +59,27 @@ def require_user(user: Optional[User] = Depends(current_user)) -> User:
     return user
 
 
+def langue(request: Request) -> str:
+    return i18n.langue_demandee(request.cookies.get("lang", ""), request.headers.get("accept-language", ""))
+
+
 def page(request: Request, name: str, status_code: int = 200, **ctx):
+    lang = langue(request)
+    ctx.update(lang=lang, _=i18n.traducteur(lang), mois=i18n.nom_mois(lang))
     return templates.TemplateResponse(request, name, ctx, status_code=status_code)
+
+
+@app.get("/langue/{code}")
+def changer_langue(code: str, retour: str = "/", user: Optional[User] = Depends(current_user),
+                   db: Session = Depends(get_db)):
+    code = code if code in i18n.LANGUES else "fr"
+    if user:
+        user.lang = code
+        db.commit()
+    # seulement un chemin local, jamais une autre adresse
+    resp = RedirectResponse(retour if retour.startswith("/") and not retour.startswith("//") else "/", status_code=303)
+    resp.set_cookie("lang", code, max_age=365 * 86400, samesite="lax", secure=config.COOKIE_SECURE)
+    return resp
 
 
 @app.get("/health")
@@ -107,6 +126,7 @@ def inscription(
         actif = email in config.ADMIN_EMAILS
         user = User(
             email=email, prenom=prenom, statut="actif" if actif else "attente", activated_at=t if actif else None,
+            lang=langue(request),
             age_ok_at=t, cgu_at=t, cgu_version=config.CGU_VERSION, ia_consent_at=t,
             partage_consent=bool(partage), partage_consent_at=t if partage else None,
         )
@@ -150,6 +170,7 @@ def auth_lien(request: Request, token: str, db: Session = Depends(get_db)):
     resp = RedirectResponse("/accueil" if user.onboarded else "/presentation", status_code=303)
     resp.set_cookie(auth.SESSION_COOKIE, sid, max_age=config.SESSION_DAYS * 86400,
                     httponly=True, samesite="lax", secure=config.COOKIE_SECURE)
+    resp.set_cookie("lang", user.lang, max_age=365 * 86400, samesite="lax", secure=config.COOKIE_SECURE)
     return resp
 
 
@@ -321,16 +342,16 @@ def ticket_envoi(request: Request, fichier: UploadFile = File(...), user: User =
         media_type = mimetypes.guess_type(fichier.filename or "")[0] or ""
     erreur = None
     if not data:
-        erreur = "Le fichier est vide."
+        erreur = ("Le fichier est vide.", {})
     elif len(data) > TAILLE_MAX:
-        erreur = "Fichier trop lourd (30 Mo maximum)."
+        erreur = ("Fichier trop lourd (30 Mo maximum).", {})
     else:
         try:
             res = tickets.enregistrer_ticket(db, user, data, fichier.filename or "ticket", media_type)
             suffixe = "?doublon=1" if res.doublon else ""
             return RedirectResponse(f"/tickets/{res.receipt.id}{suffixe}", status_code=303)
         except tickets.TicketRefuse as e:
-            erreur = str(e)
+            erreur = (e.cle, e.valeurs)
     return page(request, "ticket_ajout.html", status_code=400, erreur=erreur,
                 utilises=tickets.tickets_ce_mois(db, user), maximum=config.MAX_TICKETS_PAR_MOIS)
 

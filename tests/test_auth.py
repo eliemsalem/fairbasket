@@ -30,7 +30,7 @@ def test_email_invalide_refuse(client):
 
 def test_nouvel_inscrit_va_en_liste_d_attente(client, links):
     r = inscrire(client, "Marie@Exemple.fr ")
-    assert "liste d'attente" in r.text
+    assert "Vous êtes sur la liste" in r.text
     assert links == {}  # aucun lien tant que le compte n'est pas accepte
 
 

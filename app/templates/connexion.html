@@ -1,14 +1,15 @@
 {% extends "base.html" %}
-{% block title %}FairBasket — Connexion{% endblock %}
+{% block title %}FairBasket — {{ _("Connexion") }}{% endblock %}
 {% block body %}
 <main class="screen">
   {% include "_logo.html" %}
-  <h1>Se connecter</h1>
-  <p class="lede">Indiquez votre adresse : nous vous envoyons un lien de connexion.</p>
+  <h1>{{ _("Se connecter") }}</h1>
+  <p class="lede">{{ _("Indiquez votre adresse : nous vous envoyons un lien de connexion.") }}</p>
   <form method="post" action="/connexion">
-    <div class="field"><label for="email">E-mail</label><input id="email" name="email" type="email" autocomplete="email" required></div>
-    <button class="btn" type="submit">Recevoir mon lien</button>
+    <div class="field"><label for="email">{{ _("E-mail") }}</label><input id="email" name="email" type="email" autocomplete="email" required></div>
+    <button class="btn" type="submit">{{ _("Recevoir mon lien") }}</button>
   </form>
-  <p class="small center">Pas encore de compte ? <a href="/"><strong>S'inscrire</strong></a></p>
+  <p class="small center">{{ _("Pas encore de compte ?") }} <a href="/"><strong>{{ _("S'inscrire") }}</strong></a></p>
+  <p class="small center" style="margin:0">{% if lang == 'fr' %}<a href="/langue/en?retour={{ request.url.path }}" lang="en">English</a>{% else %}<a href="/langue/fr?retour={{ request.url.path }}" lang="fr">Français</a>{% endif %}</p>
 </main>
 {% endblock %}

@@ -11,7 +11,6 @@ from sqlalchemy.orm import Session, selectinload
 
 from .models import Receipt, ReceiptItem, User
 
-MOIS = ["janv.", "févr.", "mars", "avr.", "mai", "juin", "juil.", "août", "sept.", "oct.", "nov.", "déc."]
 ZERO = Decimal("0")
 
 
@@ -23,12 +22,13 @@ def _ajoute_mois(d: date, n: int) -> date:
 @dataclass
 class Tableau:
     periode: str
-    libelle_periode: str
+    debut: date
+    fin: date  # premier jour du dernier mois de la periode
+    debut_prec: date
     total: Decimal = ZERO
     nb_tickets: int = 0
     panier_moyen: Optional[Decimal] = None
     evolution: Optional[int] = None  # en %, par rapport a la periode precedente
-    libelle_comparaison: str = ""
     mois: list = field(default_factory=list)
     enseignes: list = field(default_factory=list)
     categories: list = field(default_factory=list)
@@ -50,14 +50,10 @@ def tableau_de_bord(db: Session, user: User, periode: str = "an", aujourd_hui: O
     if periode == "mois":
         debut, fin = mois_courant, _ajoute_mois(mois_courant, 1)
         debut_prec = _ajoute_mois(mois_courant, -1)
-        libelle = f"{MOIS[debut.month - 1].capitalize()} {debut.year}"
-        comparaison = f"par rapport à {MOIS[debut_prec.month - 1]}"
     else:
         periode = "an"
         debut, fin = _ajoute_mois(mois_courant, -11), _ajoute_mois(mois_courant, 1)
         debut_prec = _ajoute_mois(debut, -12)
-        libelle = f"{MOIS[debut.month - 1].capitalize()} {debut.year} – {MOIS[mois_courant.month - 1]} {mois_courant.year}"
-        comparaison = "par rapport aux 12 mois précédents"
 
     tickets = db.scalars(
         select(Receipt).where(Receipt.user_id == user.id, Receipt.achete_le.is_not(None))
@@ -66,7 +62,7 @@ def tableau_de_bord(db: Session, user: User, periode: str = "an", aujourd_hui: O
     dans = [r for r in tickets if debut <= r.achete_le.date() < fin]
     avant = [r for r in tickets if debut_prec <= r.achete_le.date() < debut]
 
-    t = Tableau(periode=periode, libelle_periode=libelle, libelle_comparaison=comparaison)
+    t = Tableau(periode=periode, debut=debut, fin=mois_courant, debut_prec=debut_prec)
     t.total = sum((r.total or ZERO for r in dans), ZERO)
     t.nb_tickets = len(dans)
     t.panier_moyen = (t.total / t.nb_tickets).quantize(Decimal("0.01")) if dans else None
@@ -80,8 +76,7 @@ def tableau_de_bord(db: Session, user: User, periode: str = "an", aujourd_hui: O
         par_mois[r.achete_le.date().replace(day=1)] += r.total or ZERO
     mois12 = [_ajoute_mois(mois_courant, -i) for i in range(11, -1, -1)]
     maxi = max([par_mois[m] for m in mois12] + [Decimal("1")])
-    t.mois = [{"lettre": MOIS[m.month - 1][0].upper(), "titre": f"{MOIS[m.month - 1]} {m.year}",
-               "valeur": par_mois[m], "hauteur": max(2, int(par_mois[m] / maxi * 120)), "courant": m == mois_courant}
+    t.mois = [{"date": m, "valeur": par_mois[m], "hauteur": max(2, int(par_mois[m] / maxi * 120)), "courant": m == mois_courant}
               for m in mois12]
 
     par_enseigne = defaultdict(lambda: ZERO)

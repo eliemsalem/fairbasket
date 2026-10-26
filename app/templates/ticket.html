@@ -1,61 +1,61 @@
 {% extends "base.html" %}
-{% block title %}FairBasket — Ticket{% endblock %}
+{% block title %}FairBasket — {{ _("Ticket") }}{% endblock %}
 {% block body %}
 <main class="screen with-nav">
-  <div class="topbar"><a href="/accueil" aria-label="Retour" style="width:44px;height:44px;display:flex;align-items:center"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></a></div>
-  {% if doublon %}<p class="card" role="status" style="margin:0"><strong>Ce ticket était déjà enregistré.</strong> Il n'a pas été ajouté une deuxième fois.</p>{% endif %}
+  <div class="topbar"><a href="/accueil" aria-label="{{ _('Retour') }}" style="width:44px;height:44px;display:flex;align-items:center"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></a></div>
+  {% if doublon %}<p class="card" role="status" style="margin:0"><strong>{{ _("Ce ticket était déjà enregistré.") }}</strong> {{ _("Il n'a pas été ajouté une deuxième fois.") }}</p>{% endif %}
   <div style="display:flex;align-items:center;gap:10px">
     <span class="dot" style="background:{{ (r.store.enseigne if r.store else '')|couleur }}"></span>
-    <span style="font-size:14px;font-weight:600">{{ r.store.enseigne if r.store else 'Magasin inconnu' }}{% if r.store and r.store.nom|lower != r.store.enseigne|lower %} · {{ r.store.nom|title }}{% endif %} · {{ r.achete_le.strftime('%d/%m/%Y · %H:%M') if r.achete_le else 'date inconnue' }}</span>
+    <span style="font-size:14px;font-weight:600">{{ _(r.store.enseigne) if r.store else _('Magasin inconnu') }}{% if r.store and r.store.nom|lower != r.store.enseigne|lower %} · {{ r.store.nom|title }}{% endif %} · {{ r.achete_le.strftime('%d/%m/%Y · %H:%M') if r.achete_le else _('date inconnue') }}</span>
   </div>
   <h1 class="mono" style="font-size:40px;line-height:1">{{ r.total|euros }}</h1>
 
   {% if r.statut == 'ok' %}
-    <div class="check"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex:none"><path d="M5 12l5 5 9-10"/></svg><span>Total vérifié : la somme des {{ r.items|length }} articles est égale au total du ticket.</span></div>
+    <div class="check"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex:none"><path d="M5 12l5 5 9-10"/></svg><span>{{ _("Total vérifié : la somme des {n} articles est égale au total du ticket.", n=r.items|length) }}</span></div>
     <div class="rows">
-      {% for it in r.items %}<div class="row"><span class="grow">{{ it.product.nom if it.product else it.libelle }}<br><span class="small">{{ it.libelle }}{% if it.prix_kg %} · {{ it.prix_kg|euros }}/kg{% endif %}{% if it.product and it.product.categorie %} · {{ it.product.categorie }}{% endif %}</span></span><span class="mono">{{ it.montant|euros }}</span></div>{% endfor %}
-      {% if r.remises_globales %}<div class="row"><span class="grow">Remises</span><span class="mono">−{{ r.remises_globales|euros }}</span></div>{% endif %}
+      {% for it in r.items %}<div class="row"><span class="grow">{{ it.product.nom if it.product else it.libelle }}<br><span class="small">{{ it.libelle }}{% if it.prix_kg %} · {{ it.prix_kg|euros }}/kg{% endif %}{% if it.product and it.product.categorie %} · {{ _(it.product.categorie) }}{% endif %}</span></span><span class="mono">{{ it.montant|euros }}</span></div>{% endfor %}
+      {% if r.remises_globales %}<div class="row"><span class="grow">{{ _("Remises") }}</span><span class="mono">−{{ r.remises_globales|euros }}</span></div>{% endif %}
     </div>
   {% else %}
     <div class="card" style="border:2px solid var(--fg);display:flex;flex-direction:column;gap:6px;font-size:14px">
-      <div style="display:flex;justify-content:space-between"><span>Total du ticket</span><strong class="mono">{{ r.total|euros }}</strong></div>
-      <div style="display:flex;justify-content:space-between"><span>Somme des articles lus</span><strong class="mono">{{ (r.somme_articles - r.remises_globales)|euros }}</strong></div>
-      {% if ecart is not none %}<div style="display:flex;justify-content:space-between;color:var(--danger);font-weight:700"><span>Écart</span><span class="mono">{{ ecart|euros }}</span></div>{% endif %}
-      <p class="small" style="margin:4px 0 0">Corrigez un montant ou ajoutez la ligne manquante pour que vos statistiques restent justes.</p>
+      <div style="display:flex;justify-content:space-between"><span>{{ _("Total du ticket") }}</span><strong class="mono">{{ r.total|euros }}</strong></div>
+      <div style="display:flex;justify-content:space-between"><span>{{ _("Somme des articles lus") }}</span><strong class="mono">{{ (r.somme_articles - r.remises_globales)|euros }}</strong></div>
+      {% if ecart is not none %}<div style="display:flex;justify-content:space-between;color:var(--danger);font-weight:700"><span>{{ _("Écart") }}</span><span class="mono">{{ ecart|euros }}</span></div>{% endif %}
+      <p class="small" style="margin:4px 0 0">{{ _("Corrigez un montant ou ajoutez la ligne manquante pour que vos statistiques restent justes.") }}</p>
     </div>
     <form method="post" action="/tickets/{{ r.id }}/corriger" style="gap:10px">
       {% for it in r.items %}
         <div class="edit-row{% if it.illisible %} flagged{% endif %}">
-          <label class="visually-hidden" for="l{{ it.id }}">Produit</label>
+          <label class="visually-hidden" for="l{{ it.id }}">{{ _("Produit") }}</label>
           <input id="l{{ it.id }}" type="text" name="libelle_{{ it.id }}" value="{{ it.libelle }}">
-          <label class="visually-hidden" for="m{{ it.id }}">Montant</label>
+          <label class="visually-hidden" for="m{{ it.id }}">{{ _("Montant") }}</label>
           <input id="m{{ it.id }}" type="text" inputmode="decimal" name="montant_{{ it.id }}" value="{{ '%.2f'|format(it.montant)|replace('.', ',') }}" class="mono">
         </div>
       {% endfor %}
       <div class="card" style="display:flex;flex-direction:column;gap:8px;background:var(--soft);border:0">
-        <strong style="font-size:14px">Ligne manquante</strong>
+        <strong style="font-size:14px">{{ _("Ligne manquante") }}</strong>
         <div class="edit-row">
-          <label class="visually-hidden" for="lnew">Produit</label>
-          <input id="lnew" type="text" name="libelle_new" placeholder="Produit">
-          <label class="visually-hidden" for="mnew">Montant</label>
+          <label class="visually-hidden" for="lnew">{{ _("Produit") }}</label>
+          <input id="lnew" type="text" name="libelle_new" placeholder="{{ _('Produit') }}">
+          <label class="visually-hidden" for="mnew">{{ _("Montant") }}</label>
           <input id="mnew" type="text" inputmode="decimal" name="montant_new" placeholder="0,00" class="mono"{% if ecart and ecart > 0 %} value="{{ '%.2f'|format(ecart)|replace('.', ',') }}"{% endif %}>
         </div>
       </div>
-      <button class="btn" type="submit">Enregistrer les corrections</button>
+      <button class="btn" type="submit">{{ _("Enregistrer les corrections") }}</button>
     </form>
   {% endif %}
   <details class="card" {% if not r.store or r.store.enseigne == 'Inconnue' %}open{% endif %}>
-    <summary style="cursor:pointer;font-weight:600;font-size:14px">{% if not r.store or r.store.enseigne == 'Inconnue' %}Magasin inconnu : indiquez-le{% else %}Changer de magasin{% endif %}</summary>
+    <summary style="cursor:pointer;font-weight:600;font-size:14px">{% if not r.store or r.store.enseigne == 'Inconnue' %}{{ _('Magasin inconnu : indiquez-le') }}{% else %}{{ _('Changer de magasin') }}{% endif %}</summary>
     <form method="post" action="/tickets/{{ r.id }}/magasin" style="gap:10px;margin-top:12px">
-      <div class="field"><label for="enseigne">Enseigne</label><input id="enseigne" name="enseigne" type="text" list="enseignes" required value="{{ r.store.enseigne if r.store and r.store.enseigne != 'Inconnue' else '' }}" placeholder="Monoprix, Marché, Picard…"></div>
+      <div class="field"><label for="enseigne">{{ _("Enseigne") }}</label><input id="enseigne" name="enseigne" type="text" list="enseignes" required value="{{ r.store.enseigne if r.store and r.store.enseigne != 'Inconnue' else '' }}" placeholder="{{ _('Monoprix, Marché, Picard…') }}"></div>
       <datalist id="enseignes">{% for e in enseignes %}<option value="{{ e }}">{% endfor %}</datalist>
-      <div class="field"><label for="magasin">Magasin (facultatif)</label><input id="magasin" name="magasin" type="text" placeholder="Crimée, marché Jean-Jaurès…"></div>
-      <button class="btn ghost" type="submit">Enregistrer le magasin</button>
+      <div class="field"><label for="magasin">{{ _("Magasin (facultatif)") }}</label><input id="magasin" name="magasin" type="text" placeholder="{{ _('Crimée, marché Jean-Jaurès…') }}"></div>
+      <button class="btn ghost" type="submit">{{ _("Enregistrer le magasin") }}</button>
     </form>
   </details>
-  {% if r.remarques %}<p class="small">Note de lecture : {{ r.remarques }}</p>{% endif %}
-  <form method="post" action="/tickets/{{ r.id }}/supprimer" onsubmit="return confirm('Supprimer ce ticket ?')">
-    <button type="submit" class="btn ghost" style="color:var(--danger);border-color:var(--danger)">Supprimer ce ticket</button>
+  {% if r.remarques %}<p class="small">{{ _("Note de lecture : {note}", note=r.remarques) }}</p>{% endif %}
+  <form method="post" action="/tickets/{{ r.id }}/supprimer" onsubmit="return confirm({{ _('Supprimer ce ticket ?')|tojson|forceescape }})">
+    <button type="submit" class="btn ghost" style="color:var(--danger);border-color:var(--danger)">{{ _("Supprimer ce ticket") }}</button>
   </form>
 </main>
 {% with actif='' %}{% include "_nav.html" %}{% endwith %}

@@ -1,10 +1,10 @@
 {% extends "base.html" %}
-{% block title %}FairBasket — Liste d'attente{% endblock %}
+{% block title %}FairBasket — {{ _("Liste d'attente") }}{% endblock %}
 {% block body %}
 <main class="screen">
   <div class="icon-circle"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></div>
-  <h1>Vous êtes sur la liste d'attente</h1>
-  <p class="lede">Merci {{ user.prenom }} ! FairBasket ouvre par petits groupes pendant la bêta. Vous recevrez un e-mail dès que votre accès est prêt.</p>
-  <p class="small push">En attendant, gardez vos tickets de caisse : vous pourrez les ajouter dès l'ouverture.</p>
+  <h1>{{ _("Vous êtes sur la liste d'attente") }}</h1>
+  <p class="lede">{{ _("Merci {prenom} ! FairBasket ouvre par petits groupes pendant la bêta. Vous recevrez un e-mail dès que votre accès est prêt.", prenom=user.prenom) }}</p>
+  <p class="small push">{{ _("En attendant, gardez vos tickets de caisse : vous pourrez les ajouter dès l'ouverture.") }}</p>
 </main>
 {% endblock %}

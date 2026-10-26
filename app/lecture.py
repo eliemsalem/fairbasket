@@ -88,7 +88,7 @@ class Lecture:
 
 
 class LectureImpossible(Exception):
-    pass
+    """Message montre a l'utilisateur (traduit a l'affichage)."""
 
 
 def image_compressee(data: bytes) -> bytes:

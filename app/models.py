@@ -101,6 +101,7 @@ class Receipt(Base):
     remarques: Mapped[Optional[str]] = mapped_column(String(500))
 
     source: Mapped[str] = mapped_column(String(5))  # "pdf" ou "photo"
+    importe: Mapped[bool] = mapped_column(Boolean, default=False)  # historique importe : hors quota mensuel
     fichier_nom: Mapped[str] = mapped_column(String(200))
     file_sha256: Mapped[str] = mapped_column(String(64))
     fichier_chemin: Mapped[Optional[str]] = mapped_column(String(300))
