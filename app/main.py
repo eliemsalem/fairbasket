@@ -91,7 +91,8 @@ def changer_langue(code: str, retour: str = "/", user: Optional[User] = Depends(
 @app.get("/health")
 def health():
     # utilise par Render pour verifier que le service repond ; le type de base aide au diagnostic
-    return {"ok": True, "base": config.DATABASE_URL.split(":", 1)[0].split("+")[0]}
+    return {"ok": True, "base": config.DATABASE_URL.split(":", 1)[0].split("+")[0], "email": config.EMAIL_BACKEND,
+            "expediteur": bool(config.EMAIL_FROM)}
 
 
 # --- Inscription -----------------------------------------------------------
