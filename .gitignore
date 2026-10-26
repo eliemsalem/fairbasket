@@ -1,0 +1,22 @@
+# Données personnelles : tickets de caisse et résultats du POC, jamais sur GitHub
+Carrefour/
+Monoprix/
+Naturalia/
+Appareil photo/
+poc/data/
+poc/report.html
+
+# Secrets
+.env
+.env.*
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+*.sqlite3
+*.db
+
+# Éditeur
+.vscode/
+.idea/
