@@ -144,8 +144,23 @@ class Product(Base):
     __tablename__ = "products"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    nom: Mapped[str] = mapped_column(String(120), unique=True)
+    nom: Mapped[str] = mapped_column(String(120))
+    # nom sans accents ni majuscules : « Œufs bio ×6 » et « oeufs bio x6 » sont le meme produit
+    cle: Mapped[str] = mapped_column(String(120), unique=True, index=True)
     categorie: Mapped[Optional[str]] = mapped_column(String(40))
+
+
+class ProductAlias(Base):
+    """Memorise qu'un libelle d'une enseigne correspond a un produit : la meme ligne n'est plus redevinee."""
+
+    __tablename__ = "product_aliases"
+    __table_args__ = (UniqueConstraint("enseigne", "libelle"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    enseigne: Mapped[str] = mapped_column(String(60))
+    libelle: Mapped[str] = mapped_column(String(120))
+    product_id: Mapped[int] = mapped_column(ForeignKey("products.id"))
+    product: Mapped[Product] = relationship()
 
 
 class SharedPrice(Base):

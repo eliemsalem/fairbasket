@@ -132,3 +132,43 @@ def test_enseigne_meme_ecriture(db):
     d = {**ALDI, "enseigne": "ALDI", "heure": "19:00"}
     r2 = enregistrer_ticket(db, u, b"b", "b.pdf", "application/pdf", lire=fausse_lecture(d)).receipt
     assert r1.store_id == r2.store_id
+
+
+def _article(libelle, nom, montant):
+    return {"libelle": libelle, "nom": nom, "categorie": "Produits laitiers et œufs", "quantite": 1,
+            "prix_unitaire": montant, "montant": montant, "remise": None, "poids_kg": None, "prix_kg": None,
+            "illisible": False}
+
+
+def test_meme_produit_entre_enseignes(db):
+    from app.models import Product, ProductAlias
+    u = nouvel_utilisateur(db, "a@x.fr", partage=True)
+    carrefour = {**ALDI, "enseigne": "Carrefour", "magasin": "MARKET", "total": 2.49,
+                 "articles": [_article("X6 OEUFS CRF BIO", "Œufs bio ×6", 2.49)]}
+    biocoop = {**ALDI, "enseigne": "Biocoop", "magasin": "CANAL BIO", "total": 2.82,
+               "articles": [_article("OEUFS BIOCOOP (6)", "œufs bio ×6", 2.82)]}
+    r1 = enregistrer_ticket(db, u, b"c", "c.pdf", "application/pdf", lire=fausse_lecture(carrefour)).receipt
+    r2 = enregistrer_ticket(db, u, b"b", "b.pdf", "application/pdf", lire=fausse_lecture(biocoop)).receipt
+    assert r1.items[0].product_id == r2.items[0].product_id  # meme produit malgre la casse
+    assert db.query(Product).one().nom == "Œufs bio ×6"
+    assert db.query(ProductAlias).count() == 2
+    assert {p.product_id for p in db.query(SharedPrice)} == {r1.items[0].product_id}
+
+
+def test_libelle_deja_vu_reutilise(db):
+    from app.models import Product
+    u = nouvel_utilisateur(db, "a@x.fr")
+    d1 = {**ALDI, "total": 2.49, "articles": [_article("X6 OEUFS", "Œufs bio ×6", 2.49)]}
+    # la deuxieme fois l'IA propose un autre nom : le libelle connu l'emporte
+    d2 = {**ALDI, "heure": "20:00", "total": 2.49, "articles": [_article("X6 OEUFS", "Oeufs biologiques", 2.49)]}
+    enregistrer_ticket(db, u, b"1", "1.pdf", "application/pdf", lire=fausse_lecture(d1))
+    enregistrer_ticket(db, u, b"2", "2.pdf", "application/pdf", lire=fausse_lecture(d2))
+    assert db.query(Product).count() == 1
+
+
+def test_ligne_illisible_sans_produit(db):
+    u = nouvel_utilisateur(db, "a@x.fr")
+    art = {**_article("COTES DE POR..", "Côtes de porc", 5.29), "illisible": True}
+    d = {**ALDI, "total": 5.29, "articles": [art]}
+    r = enregistrer_ticket(db, u, b"1", "1.pdf", "application/pdf", lire=fausse_lecture(d)).receipt
+    assert r.items[0].product_id is None

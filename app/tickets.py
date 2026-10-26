@@ -1,6 +1,7 @@
 """Enregistrement d'un ticket : doublons, quota, lecture par l'IA, controle du total, prix partages."""
 
 import hashlib
+import unicodedata
 from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal
@@ -11,7 +12,7 @@ from sqlalchemy.orm import Session
 
 from . import config
 from .lecture import Lecture, LectureImpossible, image_compressee, lire_ticket
-from .models import Receipt, ReceiptItem, SharedPrice, Store, User, now
+from .models import Product, ProductAlias, Receipt, ReceiptItem, SharedPrice, Store, User, now
 
 TOLERANCE = Decimal("0.02")
 TYPES_ACCEPTES = {"application/pdf": "pdf", "image/jpeg": "photo", "image/png": "photo", "image/webp": "photo",
@@ -56,6 +57,31 @@ def _magasin(db: Session, d: dict) -> Optional[Store]:
     return store
 
 
+def cle_produit(nom: str) -> str:
+    nom = nom.replace("œ", "oe").replace("Œ", "Oe").replace("æ", "ae").replace("×", "x")
+    nom = "".join(c for c in unicodedata.normalize("NFKD", nom) if not unicodedata.combining(c))
+    return " ".join(nom.casefold().split())[:120]
+
+
+def _produit(db: Session, enseigne: str, libelle: str, nom: str, categorie: Optional[str]) -> Optional[Product]:
+    """Retrouve le produit : d'abord par un libelle deja vu dans cette enseigne, sinon par son nom lisible."""
+    if enseigne:
+        alias = db.scalar(select(ProductAlias).where(ProductAlias.enseigne == enseigne, ProductAlias.libelle == libelle))
+        if alias:
+            return alias.product
+    nom = " ".join((nom or "").split())[:120]
+    if not nom or nom.lower() == "article illisible":
+        return None
+    produit = db.scalar(select(Product).where(Product.cle == cle_produit(nom)))
+    if produit is None:
+        produit = Product(nom=nom[0].upper() + nom[1:], cle=cle_produit(nom), categorie=categorie)
+        db.add(produit)
+    if enseigne:
+        db.add(ProductAlias(enseigne=enseigne, libelle=libelle, product=produit))
+        db.flush()
+    return produit
+
+
 def _date_achat(d: dict) -> Optional[datetime]:
     try:
         return datetime.strptime(f"{d.get('date')} {d.get('heure') or '00:00'}", "%Y-%m-%d %H:%M")
@@ -86,8 +112,11 @@ def enregistrer_ticket(db: Session, user: User, data: bytes, fichier_nom: str, m
     achete_le = _date_achat(d)
     total = _dec(d.get("total"))
     remises = _dec(d.get("remises_globales")) or Decimal("0")
+    enseigne = store.enseigne if store else ""
     items = [
         ReceiptItem(position=i, libelle=(a["libelle"] or "?")[:120], quantite=Decimal(str(a["quantite"] or 1)),
+                    product=None if a.get("illisible") else _produit(db, enseigne, (a["libelle"] or "?")[:120],
+                                                                      a.get("nom"), a.get("categorie")),
                     prix_unitaire=_dec(a["prix_unitaire"]), montant=_dec(a["montant"]), remise=_dec(a["remise"]),
                     poids_kg=None if a["poids_kg"] is None else Decimal(str(a["poids_kg"])),
                     prix_kg=_dec(a["prix_kg"]), illisible=bool(a["illisible"]))
@@ -142,8 +171,8 @@ def partager_prix(db: Session, user: User, receipt: Receipt) -> None:
         if it.illisible or it.montant <= 0:
             continue
         prix = it.prix_unitaire or (it.montant / it.quantite if it.quantite else it.montant)
-        db.add(SharedPrice(store=receipt.store, libelle=it.libelle, prix_unitaire=_dec(prix), prix_kg=it.prix_kg,
-                           jour=receipt.achete_le.date()))
+        db.add(SharedPrice(store=receipt.store, libelle=it.libelle, product_id=it.product_id,
+                           prix_unitaire=_dec(prix), prix_kg=it.prix_kg, jour=receipt.achete_le.date()))
 
 
 def montant_saisi(texte: str) -> Optional[Decimal]:
