@@ -50,3 +50,25 @@ def test_seulement_ses_tickets(db):
     a, b = nouvel_utilisateur(db, "a@x.fr"), nouvel_utilisateur(db, "b@x.fr")
     ticket(db, a, 1, "Carrefour", "2026-10-03", [_article("A", "Pain", 10.0)])
     assert tableau_de_bord(db, b, "an", AUJ).nb_tickets == 0
+
+
+def test_comparaisons(db):
+    from app.stats import comparaisons
+    u = nouvel_utilisateur(db, "a@x.fr")
+    ticket(db, u, 1, "Biocoop", "2026-10-03", [_article("O", "Œufs bio ×6", 2.82), _article("K", "Kéfir 1 L", 2.65)])
+    ticket(db, u, 2, "Carrefour", "2026-10-15", [_article("X", "Œufs bio ×6", 2.49)])
+    c = comparaisons(db, u)
+    assert [p["nom"] for p in c["produits"]] == ["Œufs bio ×6"]  # le kéfir n'est que chez Biocoop
+    assert c["produits"][0]["lignes"][0]["enseigne"] == "Carrefour" and c["meilleure"] == ("Carrefour", 1)
+    assert comparaisons(db, u, "oeufs")["produits"] and not comparaisons(db, u, "saumon")["produits"]
+
+
+def test_communaute_anonyme(db):
+    from app.stats import communaute
+    a = nouvel_utilisateur(db, "a@x.fr", partage=True)
+    b = nouvel_utilisateur(db, "b@x.fr", partage=True)
+    ticket(db, a, 1, "Biocoop", date.today().isoformat(), [_article("O", "Œufs bio ×6", 2.82)])
+    ticket(db, a, 2, "Carrefour", date.today().isoformat(), [_article("X", "Œufs bio ×6", 2.49)])
+    ticket(db, b, 3, "Biocoop", date.today().isoformat(), [_article("O", "Œufs bio ×6", 2.90)])
+    res = communaute(db, b, "")
+    assert res and res[0]["lignes"][0]["enseigne"] == "Carrefour"  # b voit le prix partagé par a

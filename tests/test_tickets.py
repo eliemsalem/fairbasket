@@ -172,3 +172,12 @@ def test_ligne_illisible_sans_produit(db):
     d = {**ALDI, "total": 5.29, "articles": [art]}
     r = enregistrer_ticket(db, u, b"1", "1.pdf", "application/pdf", lire=fausse_lecture(d)).receipt
     assert r.items[0].product_id is None
+
+
+def test_formats_ramenes_a_l_enseigne():
+    from app.tickets import enseigne_canonique
+    assert enseigne_canonique("Carrefour City") == "Carrefour"
+    assert enseigne_canonique("Monop'") == "Monoprix"
+    assert enseigne_canonique("MONOPRIX") == "Monoprix"
+    assert enseigne_canonique("picard") == "Picard"
+    assert enseigne_canonique("Grand Frais") == "Grand Frais"

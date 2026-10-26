@@ -190,6 +190,15 @@ def accueil(request: Request, periode: str = "an", user: User = Depends(require_
                 a_corriger=a_corriger, t=stats.tableau_de_bord(db, user, periode))
 
 
+@app.get("/comparer", response_class=HTMLResponse)
+def comparer(request: Request, onglet: str = "moi", q: str = "", user: User = Depends(require_user),
+             db: Session = Depends(get_db)):
+    q = q.strip()[:60]
+    if onglet == "communaute":
+        return page(request, "comparer.html", onglet=onglet, q=q, commu=stats.communaute(db, user, q))
+    return page(request, "comparer.html", onglet="moi", q=q, c=stats.comparaisons(db, user, q))
+
+
 # --- Tickets ----------------------------------------------------------------
 
 TAILLE_MAX = 30 * 1024 * 1024

@@ -125,3 +125,75 @@ def tableau_de_bord(db: Session, user: User, periode: str = "an", aujourd_hui: O
                               "gain": par_ens[habituelle][1] - moins_chere[1][1]})
     t.alertes = sorted(t.alertes, key=lambda a: -a["gain"])[:3]
     return t
+
+
+def _derniers_prix(tickets) -> tuple[dict, dict, dict]:
+    """produit -> enseigne -> (date, prix unitaire) ; produit -> nom ; produit -> nombre d'achats."""
+    derniers, noms, achats = defaultdict(dict), {}, defaultdict(int)
+    for r in sorted(tickets, key=lambda r: r.achete_le):
+        if not r.store or r.store.enseigne in ("Inconnue", "Marché", "Commerce"):
+            continue
+        for it in r.items:
+            prix = _prix_unitaire(it)
+            if it.product_id and prix:
+                derniers[it.product_id][r.store.enseigne] = (r.achete_le, prix)
+                noms[it.product_id] = it.product.nom
+                achats[it.product_id] += 1
+    return derniers, noms, achats
+
+
+def comparaisons(db: Session, user: User, recherche: str = "") -> dict:
+    """Produits achetes dans au moins deux enseignes, dernier prix dans chacune, la moins chere en premier."""
+    from .tickets import cle_produit
+
+    tickets = db.scalars(
+        select(Receipt).where(Receipt.user_id == user.id, Receipt.achete_le.is_not(None))
+        .options(selectinload(Receipt.items).selectinload(ReceiptItem.product), selectinload(Receipt.store))
+    ).all()
+    derniers, noms, achats = _derniers_prix(tickets)
+    cle = cle_produit(recherche) if recherche else ""
+    produits, gagnantes = [], defaultdict(int)
+    for pid, par_ens in derniers.items():
+        if len(par_ens) < 2 or (cle and cle not in cle_produit(noms[pid])):
+            continue
+        lignes = sorted(({"enseigne": e, "prix": p, "date": d} for e, (d, p) in par_ens.items()),
+                        key=lambda l: l["prix"])
+        produits.append({"nom": noms[pid], "achats": achats[pid], "lignes": lignes})
+        gagnantes[lignes[0]["enseigne"]] += 1
+    produits.sort(key=lambda p: -p["achats"])
+    meilleure = max(gagnantes.items(), key=lambda kv: kv[1]) if gagnantes else None
+    return {"produits": produits[:30], "meilleure": meilleure, "nb_compares": len(produits)}
+
+
+def communaute(db: Session, user: User, recherche: str = "", jours: int = 90) -> list:
+    """Prix partages par tous les utilisateurs (anonymes) pour les produits que cette personne achete."""
+    from datetime import timedelta
+
+    from .models import SharedPrice, Store
+    from .tickets import cle_produit
+
+    mes_produits = set(db.scalars(select(ReceiptItem.product_id).join(Receipt)
+                                  .where(Receipt.user_id == user.id, ReceiptItem.product_id.is_not(None))))
+    if not mes_produits:
+        return []
+    depuis = date.today() - timedelta(days=jours)
+    rangs = db.execute(select(SharedPrice, Store).join(Store)
+                       .where(SharedPrice.product_id.in_(mes_produits), SharedPrice.jour >= depuis)).all()
+    from .models import Product
+    noms = {p.id: p.nom for p in db.scalars(select(Product).where(Product.id.in_(mes_produits)))}
+    cle = cle_produit(recherche) if recherche else ""
+    groupes = defaultdict(lambda: defaultdict(list))
+    for sp, store in rangs:
+        if cle and cle not in cle_produit(noms.get(sp.product_id, "")):
+            continue
+        groupes[sp.product_id][(store.enseigne, store.nom)].append(sp.prix_unitaire)
+    resultat = []
+    for pid, par_mag in groupes.items():
+        lignes = []
+        for (enseigne, nom), prix in par_mag.items():
+            prix = sorted(prix)
+            lignes.append({"enseigne": enseigne, "magasin": nom.title(), "prix": prix[len(prix) // 2],
+                           "releves": len(prix)})
+        if len(lignes) >= 2:
+            resultat.append({"nom": noms[pid], "lignes": sorted(lignes, key=lambda l: l["prix"])})
+    return sorted(resultat, key=lambda p: -sum(l["releves"] for l in p["lignes"]))[:30]

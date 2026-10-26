@@ -39,10 +39,24 @@ def tickets_ce_mois(db: Session, user: User) -> int:
                                                                       Receipt.created_at >= debut))
 
 
-def _magasin(db: Session, d: dict) -> Optional[Store]:
-    enseigne = (d.get("enseigne") or "").strip()[:60]
-    if enseigne.isupper():
+# formats de magasin ramenes a leur enseigne : « Carrefour City » est un magasin Carrefour
+FORMATS = {"carrefour": "Carrefour", "monop": "Monoprix", "monoprix": "Monoprix", "franprix": "Franprix",
+           "intermarche": "Intermarché", "intermarché": "Intermarché", "auchan": "Auchan", "naturalia": "Naturalia",
+           "biocoop": "Biocoop", "lidl": "Lidl", "aldi": "Aldi", "leclerc": "E.Leclerc", "e.leclerc": "E.Leclerc"}
+
+
+def enseigne_canonique(enseigne: str) -> str:
+    enseigne = " ".join((enseigne or "").split())[:60]
+    premier = enseigne.split(" ")[0].lower().rstrip("'’") if enseigne else ""
+    if premier in FORMATS:
+        return FORMATS[premier]
+    if enseigne.isupper() or enseigne.islower():
         enseigne = enseigne.title()  # « MONOPRIX » et « Monoprix » sont la meme enseigne
+    return enseigne
+
+
+def _magasin(db: Session, d: dict) -> Optional[Store]:
+    enseigne = enseigne_canonique(d.get("enseigne") or "")
     nom = (d.get("magasin") or enseigne).strip().upper()[:120]
     if not enseigne:
         return None
@@ -185,11 +199,8 @@ def montant_saisi(texte: str) -> Optional[Decimal]:
 
 
 def changer_magasin(db: Session, receipt: Receipt, enseigne: str, nom: str) -> None:
-    enseigne = " ".join(enseigne.split())[:60]
-    if not enseigne:
+    if not enseigne_canonique(enseigne):
         return
-    if enseigne.isupper() or enseigne.islower():
-        enseigne = enseigne.title()
     receipt.store = _magasin(db, {"enseigne": enseigne, "magasin": nom or enseigne})
     db.commit()
 
