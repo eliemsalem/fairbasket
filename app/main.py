@@ -32,7 +32,6 @@ if not _journal.handlers:
     _h.setFormatter(logging.Formatter("%(levelname)s fairbasket: %(message)s"))
     _journal.addHandler(_h)
 _journal.setLevel(logging.INFO)
-_journal.propagate = False
 log = logging.getLogger("fairbasket.pages")
 
 
