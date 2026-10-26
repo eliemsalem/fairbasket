@@ -86,3 +86,22 @@ def test_changer_de_magasin(client, links, sans_ia):
     page = client.get(loc).text
     assert "Monoprix" in page and "Magasin inconnu" not in page
     assert "Changer de magasin" in page
+
+
+def test_import_reserve_a_l_admin(client, links):
+    from app.db import SessionLocal
+    from app.models import Receipt
+    connecter_admin(client, links)
+    assert client.get("/tickets/importer").status_code == 200
+    client.post("/tickets", files={"fichier": PDF}, data={"importe": "1"})
+    assert SessionLocal().query(Receipt).one().importe is True
+    client.post("/deconnexion")
+    inscrire(client, "marie@exemple.fr")
+    connecter_admin(client, links)
+    client.post("/admin/activer/2")
+    client.post("/deconnexion")
+    client.get(chemin(links["marie@exemple.fr"][-1]))
+    assert client.get("/tickets/importer").status_code == 404
+    client.post("/tickets", files={"fichier": ("b.pdf", b"autre", "application/pdf")}, data={"importe": "1"})
+    s = SessionLocal()
+    assert s.query(Receipt).filter(Receipt.importe.is_(False)).count() == 1  # marie ne peut pas contourner le quota

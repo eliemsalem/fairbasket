@@ -154,7 +154,7 @@ def enregistrer_ticket(db: Session, user: User, data: bytes, fichier_nom: str, m
     statut = "ok" if total is not None and abs(somme - remises - total) <= TOLERANCE else "ecart"
     receipt = Receipt(
         user_id=user.id, store=store, achete_le=achete_le, total=total, somme_articles=somme,
-        remises_globales=remises, statut=statut, remarques=(d.get("remarques") or None),
+        remises_globales=remises, statut=statut, remarques=(d.get("remarques") or None) and d["remarques"][:500],
         source=TYPES_ACCEPTES[media_type], importe=importe, fichier_nom=fichier_nom[:200], file_sha256=sha,
         modele=lecture.modele, tokens_entree=lecture.tokens_entree, tokens_sortie=lecture.tokens_sortie,
         items=items,

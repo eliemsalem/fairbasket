@@ -3,15 +3,28 @@ services:
     name: fairbasket
     runtime: python
     region: frankfurt
-    plan: free
+    plan: starter  # sans mise en veille
     buildCommand: pip install -r requirements.txt
+    # met la structure de la base a jour avant chaque mise en ligne
+    preDeployCommand: alembic upgrade head
     startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
     healthCheckPath: /health
+    # photos et PDF des tickets (~0,7 Mo par ticket) : conserves entre les mises a jour
+    disk:
+      name: tickets
+      mountPath: /var/data
+      sizeGB: 1
     envVars:
       - key: PYTHON_VERSION
         value: 3.12.7
       - key: BASE_URL
         value: https://fairbasket-jhiu.onrender.com
+      - key: UPLOAD_DIR
+        value: /var/data/uploads
+      - key: DATABASE_URL
+        fromDatabase:
+          name: fairbasket-db
+          property: connectionString
       # tant que Brevo n'est pas branche, les liens de connexion s'affichent dans les logs Render
       - key: EMAIL_BACKEND
         value: console
@@ -21,3 +34,13 @@ services:
         sync: false
       - key: ANTHROPIC_API_KEY
         sync: false
+
+databases:
+  - name: fairbasket-db
+    plan: basic-256mb
+    region: frankfurt
+    databaseName: fairbasket
+    user: fairbasket
+    postgresMajorVersion: "18"
+    diskSizeGB: 1
+    ipAllowList: []  # accessible seulement depuis les services Render

@@ -63,6 +63,12 @@ def langue(request: Request) -> str:
     return i18n.langue_demandee(request.cookies.get("lang", ""), request.headers.get("accept-language", ""))
 
 
+def require_admin(user: User = Depends(require_user)) -> User:
+    if not auth.is_admin(user):
+        raise HTTPException(status_code=404)
+    return user
+
+
 def page(request: Request, name: str, status_code: int = 200, **ctx):
     lang = langue(request)
     ctx.update(lang=lang, _=i18n.traducteur(lang), mois=i18n.nom_mois(lang))
@@ -333,9 +339,14 @@ def ticket_ajout(request: Request, user: User = Depends(require_user), db: Sessi
                 maximum=config.MAX_TICKETS_PAR_MOIS)
 
 
+@app.get("/tickets/importer", response_class=HTMLResponse)
+def tickets_importer(request: Request, _: User = Depends(require_admin)):
+    return page(request, "importer.html")
+
+
 @app.post("/tickets")
-def ticket_envoi(request: Request, fichier: UploadFile = File(...), user: User = Depends(require_user),
-                 db: Session = Depends(get_db)):
+def ticket_envoi(request: Request, fichier: UploadFile = File(...), importe: Optional[str] = Form(None),
+                 user: User = Depends(require_user), db: Session = Depends(get_db)):
     data = fichier.file.read(TAILLE_MAX + 1)
     media_type = fichier.content_type
     if not media_type or media_type == "application/octet-stream":
@@ -347,7 +358,9 @@ def ticket_envoi(request: Request, fichier: UploadFile = File(...), user: User =
         erreur = ("Fichier trop lourd (30 Mo maximum).", {})
     else:
         try:
-            res = tickets.enregistrer_ticket(db, user, data, fichier.filename or "ticket", media_type)
+            # import d'historique (hors quota) : reserve a l'administration pour l'instant
+            res = tickets.enregistrer_ticket(db, user, data, fichier.filename or "ticket", media_type,
+                                             importe=bool(importe) and auth.is_admin(user))
             suffixe = "?doublon=1" if res.doublon else ""
             return RedirectResponse(f"/tickets/{res.receipt.id}{suffixe}", status_code=303)
         except tickets.TicketRefuse as e:
@@ -397,12 +410,6 @@ def ticket_supprimer(receipt_id: int, user: User = Depends(require_user), db: Se
 
 
 # --- Administration : liste d'attente --------------------------------------
-
-def require_admin(user: User = Depends(require_user)) -> User:
-    if not auth.is_admin(user):
-        raise HTTPException(status_code=404)
-    return user
-
 
 @app.get("/admin", response_class=HTMLResponse)
 def admin(request: Request, _: User = Depends(require_admin), db: Session = Depends(get_db)):

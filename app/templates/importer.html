@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block title %}FairBasket — Import{% endblock %}
+{% block body %}
+<main class="screen">
+  <div class="topbar"><a href="/admin">← Administration</a></div>
+  <h1>Importer un historique</h1>
+  <p class="lede">Choisissez tous vos anciens tickets d'un coup (PDF et photos). Ils sont lus un par un et ne comptent pas dans le quota du mois. Les doublons sont ignorés.</p>
+  <label class="big-choice primary">
+    <input id="fichiers" type="file" multiple accept="image/*,application/pdf" class="visually-hidden">
+    <span style="font-size:18px;font-weight:700">Choisir les fichiers</span>
+  </label>
+  <div id="suivi" hidden style="display:flex;flex-direction:column;gap:10px" aria-live="polite">
+    <strong id="compteur"></strong>
+    <div style="height:8px;border-radius:4px;background:var(--line);overflow:hidden"><div id="barre" style="height:100%;width:0;background:var(--fg)"></div></div>
+    <p class="small" id="bilan"></p>
+    <ul class="small" id="erreurs"></ul>
+    <a class="btn" href="/accueil" id="fin" hidden>Voir mon tableau de bord</a>
+  </div>
+</main>
+<script>
+  // envoi un par un (chaque lecture prend quelques secondes) avec la photo reduite comme a l'ajout normal
+  async function reduire(file) {
+    if (!file.type.startsWith('image/') || file.size < 2 * 1024 * 1024) return file;
+    try {
+      const bmp = await createImageBitmap(file, { imageOrientation: 'from-image' });
+      const k = Math.min(1, 2400 / Math.max(bmp.width, bmp.height));
+      const c = document.createElement('canvas');
+      c.width = Math.round(bmp.width * k); c.height = Math.round(bmp.height * k);
+      c.getContext('2d').drawImage(bmp, 0, 0, c.width, c.height);
+      const blob = await new Promise((ok) => c.toBlob(ok, 'image/jpeg', 0.85));
+      return blob ? new File([blob], file.name.replace(/\.\w+$/, '.jpg'), { type: 'image/jpeg' }) : file;
+    } catch (e) { return file; }
+  }
+  document.getElementById('fichiers').addEventListener('change', async (ev) => {
+    const fichiers = [...ev.target.files];
+    if (!fichiers.length) return;
+    document.getElementById('suivi').hidden = false;
+    let ok = 0, doublons = 0, echecs = 0;
+    for (const [i, f] of fichiers.entries()) {
+      document.getElementById('compteur').textContent = `Lecture ${i + 1} / ${fichiers.length} : ${f.name}`;
+      const donnees = new FormData();
+      donnees.append('fichier', await reduire(f));
+      donnees.append('importe', '1');
+      try {
+        const rep = await fetch('/tickets', { method: 'POST', body: donnees });
+        if (rep.redirected) { rep.url.includes('doublon=1') ? doublons++ : ok++; }
+        else { throw new Error(rep.status); }
+      } catch (e) {
+        echecs++;
+        const li = document.createElement('li'); li.textContent = f.name; document.getElementById('erreurs').append(li);
+      }
+      document.getElementById('barre').style.width = `${Math.round((i + 1) / fichiers.length * 100)}%`;
+      document.getElementById('bilan').textContent = `${ok} importé(s), ${doublons} déjà présent(s), ${echecs} en échec`;
+    }
+    document.getElementById('compteur').textContent = 'Import terminé';
+    document.getElementById('fin').hidden = false;
+  });
+</script>
+{% endblock %}

@@ -22,6 +22,11 @@ def _load_dotenv():
 _load_dotenv()
 
 DATABASE_URL = os.environ.get("DATABASE_URL", f"sqlite:///{ROOT / 'fairbasket.db'}")
+# Render donne « postgresql://… » : on precise le pilote psycopg 3
+if DATABASE_URL.startswith("postgres://"):
+    DATABASE_URL = "postgresql://" + DATABASE_URL[len("postgres://"):]
+if DATABASE_URL.startswith("postgresql://"):
+    DATABASE_URL = "postgresql+psycopg://" + DATABASE_URL[len("postgresql://"):]
 SECRET_KEY = os.environ.get("SECRET_KEY", "dev-secret-a-changer")
 BASE_URL = os.environ.get("BASE_URL", "http://localhost:8000").rstrip("/")
 # "console" : le lien de connexion s'affiche dans le terminal (developpement)

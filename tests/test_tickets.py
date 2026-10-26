@@ -3,7 +3,8 @@ from datetime import datetime, timezone
 import pytest
 
 from app import config
-from app.db import Base, SessionLocal, engine
+from app.db import SessionLocal
+from tests.conftest import base_vide
 from app.lecture import Lecture
 from app.models import Receipt, SharedPrice, User
 from app.tickets import TicketRefuse, enregistrer_ticket
@@ -30,8 +31,7 @@ def fausse_lecture(donnees):
 @pytest.fixture
 def db(tmp_path, monkeypatch):
     monkeypatch.setattr(config, "UPLOAD_DIR", tmp_path)
-    Base.metadata.drop_all(engine)
-    Base.metadata.create_all(engine)
+    base_vide()
     s = SessionLocal()
     yield s
     s.close()
