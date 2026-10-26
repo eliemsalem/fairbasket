@@ -20,3 +20,6 @@ __pycache__/
 # Éditeur
 .vscode/
 .idea/
+
+# Réglages personnels de Claude Code
+.claude/settings.local.json
