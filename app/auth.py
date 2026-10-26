@@ -4,6 +4,7 @@ import hashlib
 import json
 import logging
 import secrets
+import urllib.error
 import urllib.request
 from datetime import datetime, timedelta, timezone
 from typing import Optional
@@ -113,8 +114,11 @@ def send_login_email(user: User, link: str) -> None:
         "api-key": config.BREVO_API_KEY, "content-type": "application/json", "accept": "application/json"})
     try:
         with urllib.request.urlopen(req, timeout=10) as rep:
-            log.info("E-mail de connexion envoyé à %s (%s)", user.email, rep.status)
-    except Exception as e:  # on ne bloque pas la page ; l'erreur est visible dans les logs (sans le lien)
+            log.info("E-mail de connexion envoyé à %s (Brevo : %s)", user.email, rep.status)
+    except urllib.error.HTTPError as e:  # reponse de Brevo : on garde son message, utile pour comprendre
+        log.error("Échec d'envoi de l'e-mail de connexion à %s : Brevo %s %s", user.email, e.code,
+                  e.read().decode(errors="replace")[:300])
+    except Exception as e:  # reseau... ; on ne bloque pas la page, et jamais le lien dans les logs
         log.error("Échec d'envoi de l'e-mail de connexion à %s : %s", user.email, e)
 
 

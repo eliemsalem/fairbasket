@@ -6,6 +6,7 @@ from typing import Optional
 
 import csv
 import io
+import logging
 import mimetypes
 import shutil
 from decimal import Decimal
@@ -24,9 +25,21 @@ from .models import Product, Receipt, ReceiptItem, ShoppingItem, Store, User, no
 APP_DIR = config.ROOT / "app"
 
 
+# messages de l'application visibles dans les logs Render (niveau INFO), en plus de ceux d'uvicorn
+_journal = logging.getLogger("fairbasket")
+if not _journal.handlers:
+    _h = logging.StreamHandler()
+    _h.setFormatter(logging.Formatter("%(levelname)s fairbasket: %(message)s"))
+    _journal.addHandler(_h)
+_journal.setLevel(logging.INFO)
+_journal.propagate = False
+log = logging.getLogger("fairbasket.pages")
+
+
 @asynccontextmanager
 async def lifespan(_app):
     init_db()
+    log.info("Démarrage : base %s, e-mails %s", config.DATABASE_URL.split(":", 1)[0], config.EMAIL_BACKEND)
     yield
 
 
@@ -140,6 +153,7 @@ def inscription(
         db.add(user)
         db.commit()
     if user.statut != "actif":
+        log.info("Inscription en liste d'attente (compte %s) : pas de lien envoyé", user.id)
         return page(request, "attente.html", user=user)
     return _envoyer_lien(request, db, user, inscription=True)
 
@@ -148,6 +162,8 @@ def _envoyer_lien(request: Request, db: Session, user: User, inscription: bool =
     link = auth.create_login_link(db, user)
     if link:
         auth.send_login_email(user, link)
+    else:
+        log.info("Lien non envoyé au compte %s : limite de liens par heure atteinte", user.id)
     # a la connexion, meme page dans tous les cas : on ne revele pas si un compte existe
     return page(request, "lien_envoye.html", email=user.email, inscription=inscription)
 
@@ -165,6 +181,7 @@ def connexion(request: Request, email: str = Form(""), db: Session = Depends(get
     user = db.scalar(select(User).where(User.email == email))
     if user and user.statut == "actif":
         return _envoyer_lien(request, db, user)
+    log.info("Demande de lien pour un compte %s : rien envoyé", "en liste d'attente" if user else "inexistant")
     return page(request, "lien_envoye.html", email=email)
 
 
