@@ -156,7 +156,9 @@ EN = {
     "Moins cher sur {n} de vos {total} produits achetés dans plusieurs enseignes, au dernier prix payé.":
         "Cheapest for {n} of your {total} products bought in several stores, at the last price paid.",
     "le moins cher": "cheapest",
-    "Aucun produit « {q} » acheté dans plusieurs enseignes.": "No “{q}” product bought in several stores.",
+    "Aucun produit ne correspond à « {q} ».": "No product matches “{q}”.",
+    "Essayez": "Try", "Saumon, œufs, fromage…": "Salmon, eggs, cheese…",
+    "Acheté seulement chez {enseigne} : pas encore de comparaison.": "Only bought at {enseigne}: nothing to compare yet.",
     "Les comparaisons apparaissent quand vous avez acheté le même produit dans au moins deux enseignes.":
         "Comparisons appear once you have bought the same product in at least two stores.",
     "Prix réellement payés sur vos tickets, à l'unité. Les produits vendus au poids ne sont pas encore comparés.":

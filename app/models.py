@@ -150,6 +150,8 @@ class Product(Base):
     # nom sans accents ni majuscules : « Œufs bio ×6 » et « oeufs bio x6 » sont le meme produit
     cle: Mapped[str] = mapped_column(String(120), unique=True, index=True)
     categorie: Mapped[Optional[str]] = mapped_column(String(40))
+    # famille generique (« poisson », « fromage », « œufs ») : pour chercher par le sens
+    famille: Mapped[Optional[str]] = mapped_column(String(60))
 
 
 class ProductAlias(Base):

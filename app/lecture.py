@@ -41,6 +41,7 @@ SCHEMA = {
                     "libelle": {"type": "string"},
                     "nom": {"type": "string"},
                     "categorie": {"type": "string", "enum": CATEGORIES},
+                    "famille": {"type": "string"},
                     "quantite": NOMBRE,
                     "prix_unitaire": NOMBRE_OU_NUL,
                     "montant": NOMBRE,
@@ -49,7 +50,7 @@ SCHEMA = {
                     "prix_kg": NOMBRE_OU_NUL,
                     "illisible": {"type": "boolean"},
                 },
-                "required": ["libelle", "nom", "categorie", "quantite", "prix_unitaire", "montant", "remise", "poids_kg", "prix_kg", "illisible"],
+                "required": ["libelle", "nom", "categorie", "famille", "quantite", "prix_unitaire", "montant", "remise", "poids_kg", "prix_kg", "illisible"],
                 "additionalProperties": False,
             },
         },
@@ -71,6 +72,7 @@ Règles :
 - articles : une entrée par ligne d'article, dans l'ordre du ticket. libelle exactement comme imprimé, sans le corriger. montant : ce qui a été payé pour la ligne, en déduisant les remises imprimées juste sous cet article (indique alors la remise en nombre positif). quantite : le nombre d'unités (1 si rien n'est indiqué ; pour un article pesé, 1 et poids_kg rempli). prix_kg : le prix au kilo s'il est imprimé.
 - nom : le nom lisible et générique du produit en français, pour reconnaître le même produit d'un magasin à l'autre. Développe les abréviations, enlève la marque du magasin et les codes, garde ce qui change le prix (bio, format, nombre d'unités). Exemples : « PAVE SAUM MONOPRIX » → « Pavé de saumon » ; « 6 OEUFS BIO CALIBR » → « Œufs bio ×6 » ; « 100G CHOC NR 85% » → « Chocolat noir 85 % 100 g » ; « KEFIR 1L CC » → « Kéfir 1 L ». Si le libellé est illisible, mets ce que tu peux deviner ou « Article illisible ».
 - categorie : le rayon le plus proche dans la liste imposée.
+- famille : le type de produit en un ou deux mots génériques, en minuscules, comme on le chercherait dans un magasin. Exemples : « Pavé de saumon » → « poisson » ; « Morbier AOP » → « fromage » ; « Œufs bio ×6 » → « œufs » ; « Red Bull 25 cl ×4 » → « boisson énergisante » ; « Lentilles vertes » → « légumineuses » ; « Liquide vaisselle » → « produit vaisselle ».
 - remises_globales : le total des remises qui ne sont rattachées à aucun article (nombre positif, 0 s'il n'y en a pas). Ne compte pas deux fois une remise déjà déduite d'un article.
 - N'ajoute pas comme articles les lignes de TVA, de paiement, de rendu monnaie, de fidélité ou de total.
 - Une ligne partiellement cachée (tache, pli) : recopie ce qui est lisible, mets illisible à true et donne le montant s'il est lisible.

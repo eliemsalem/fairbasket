@@ -82,11 +82,14 @@ def cle_produit(nom: str) -> str:
     return " ".join(nom.casefold().split())[:120]
 
 
-def _produit(db: Session, enseigne: str, libelle: str, nom: str, categorie: Optional[str]) -> Optional[Product]:
+def _produit(db: Session, enseigne: str, libelle: str, nom: str, categorie: Optional[str],
+             famille: Optional[str] = None) -> Optional[Product]:
     """Retrouve le produit : d'abord par un libelle deja vu dans cette enseigne, sinon par son nom lisible."""
     if enseigne:
         alias = db.scalar(select(ProductAlias).where(ProductAlias.enseigne == enseigne, ProductAlias.libelle == libelle))
         if alias:
+            if famille and not alias.product.famille:
+                alias.product.famille = famille.strip().lower()[:60]
             return alias.product
     nom = " ".join((nom or "").split())[:120]
     if not nom or nom.lower() == "article illisible":
@@ -95,6 +98,8 @@ def _produit(db: Session, enseigne: str, libelle: str, nom: str, categorie: Opti
     if produit is None:
         produit = Product(nom=nom[0].upper() + nom[1:], cle=cle_produit(nom), categorie=categorie)
         db.add(produit)
+    if famille and not produit.famille:
+        produit.famille = famille.strip().lower()[:60]
     if enseigne:
         db.add(ProductAlias(enseigne=enseigne, libelle=libelle, product=produit))
         db.flush()
@@ -135,7 +140,8 @@ def enregistrer_ticket(db: Session, user: User, data: bytes, fichier_nom: str, m
     items = [
         ReceiptItem(position=i, libelle=(a["libelle"] or "?")[:120], quantite=Decimal(str(a["quantite"] or 1)),
                     product=None if a.get("illisible") else _produit(db, enseigne, (a["libelle"] or "?")[:120],
-                                                                      a.get("nom"), a.get("categorie")),
+                                                                      a.get("nom"), a.get("categorie"),
+                                                                      a.get("famille")),
                     prix_unitaire=_dec(a["prix_unitaire"]), montant=_dec(a["montant"]), remise=_dec(a["remise"]),
                     poids_kg=None if a["poids_kg"] is None else Decimal(str(a["poids_kg"])),
                     prix_kg=_dec(a["prix_kg"]), illisible=bool(a["illisible"]))

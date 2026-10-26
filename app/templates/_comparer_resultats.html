@@ -1,0 +1,49 @@
+  {% if onglet == 'moi' %}
+    {% if c.meilleure and not q %}
+    <div class="card" style="background:var(--fg);color:var(--on-fg);border:0">
+      <span class="eyebrow" style="color:inherit;opacity:.75">{{ _("Votre panier habituel") }}</span><br>
+      <strong style="font-size:18px">{{ _("Le moins cher le plus souvent : {enseigne}", enseigne=c.meilleure[0]) }}</strong><br>
+      <span style="font-size:14px;opacity:.8">{{ _("Moins cher sur {n} de vos {total} produits achetés dans plusieurs enseignes, au dernier prix payé.", n=c.meilleure[1], total=c.nb_compares) }}</span>
+    </div>
+    {% endif %}
+    {% if not q and c.suggestions %}
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <span class="small"><strong>{{ _("Essayez") }}</strong></span>
+      <div style="display:flex;flex-wrap:wrap;gap:8px">{% for f in c.suggestions %}<a class="chip" style="display:inline-flex;align-items:center;text-decoration:none" href="/comparer?onglet=moi&q={{ f|urlencode }}" data-suggestion="{{ f }}">{{ f }}</a>{% endfor %}</div>
+    </div>
+    {% endif %}
+    {% for p in c.produits %}
+      <div class="card" style="display:flex;flex-direction:column;gap:8px">
+        <div style="display:flex;justify-content:space-between;gap:10px;align-items:baseline"><h2>{{ p.nom }}</h2><span class="small" style="white-space:nowrap">{{ _("{n} achat(s)", n=p.achats) }}</span></div>
+        {% for l in p.lignes %}
+          <div style="display:flex;align-items:center;gap:10px;font-size:14px">
+            <span class="dot" style="width:10px;height:10px;background:{{ l.enseigne|couleur }}"></span>
+            <span class="grow">{{ l.enseigne }} <span class="small">· {{ l.date.strftime('%d/%m/%y') }}</span></span>
+            {% if loop.first and not p.seul %}<span class="badge">{{ _("le moins cher") }}</span>{% endif %}
+            <span class="mono" style="font-weight:{{ 700 if loop.first else 500 }}">{{ l.prix|euros }}</span>
+          </div>
+        {% endfor %}
+        {% if p.seul %}<p class="small" style="margin:0">{{ _("Acheté seulement chez {enseigne} : pas encore de comparaison.", enseigne=p.lignes[0].enseigne) }}</p>{% endif %}
+      </div>
+    {% else %}
+      <div class="card"><p class="lede" style="margin:0">{% if q %}{{ _('Aucun produit ne correspond à « {q} ».', q=q) }}{% else %}{{ _('Les comparaisons apparaissent quand vous avez acheté le même produit dans au moins deux enseignes.') }}{% endif %}</p></div>
+    {% endfor %}
+    <p class="small">{{ _("Prix réellement payés sur vos tickets, à l'unité. Les produits vendus au poids ne sont pas encore comparés.") }}</p>
+  {% else %}
+    {% for p in commu %}
+      <div class="card" style="display:flex;flex-direction:column;gap:8px">
+        <h2>{{ p.nom }}</h2>
+        {% for l in p.lignes %}
+          <div style="display:flex;align-items:center;gap:10px;font-size:14px">
+            <span class="dot" style="width:10px;height:10px;background:{{ l.enseigne|couleur }}"></span>
+            <span class="grow">{{ l.enseigne }} <span class="small">· {{ l.magasin }} · {{ _("{n} relevé(s)", n=l.releves) }}</span></span>
+            {% if loop.first %}<span class="badge">{{ _("le moins cher") }}</span>{% endif %}
+            <span class="mono">{{ l.prix|euros }}</span>
+          </div>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="card"><h2>{{ _("Les prix relevés près de chez vous") }}</h2><p class="lede" style="margin:6px 0 0">{{ _("Pas encore assez de prix partagés pour vos produits. Chaque ticket partagé de façon anonyme aide tout le monde à trouver le meilleur prix.") }}</p></div>
+    {% endfor %}
+    <p class="small">{{ _("Prix partagés anonymement par les utilisateurs ces 90 derniers jours (prix médian par magasin).") }}</p>
+  {% endif %}

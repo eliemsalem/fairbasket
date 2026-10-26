@@ -72,3 +72,24 @@ def test_communaute_anonyme(db):
     ticket(db, b, 3, "Biocoop", date.today().isoformat(), [_article("O", "Œufs bio ×6", 2.90)])
     res = communaute(db, b, "")
     assert res and res[0]["lignes"][0]["enseigne"] == "Carrefour"  # b voit le prix partagé par a
+
+
+def test_recherche_intelligente(db):
+    from app.stats import comparaisons
+    u = nouvel_utilisateur(db, "a@x.fr")
+    art = lambda lib, nom, fam, prix: {**_article(lib, nom, prix), "famille": fam}  # noqa: E731
+    ticket(db, u, 1, "Carrefour", "2026-10-03", [art("PAVE SAUM", "Pavé de saumon", "poisson", 9.99)])
+    ticket(db, u, 2, "Monoprix", "2026-10-10", [art("PAVE SAUM MPX", "Pavé de saumon", "poisson", 10.47),
+                                                art("LIMANDE", "Limande meunière", "poisson", 3.79)])
+    assert [p["nom"] for p in comparaisons(db, u, "saumo")["produits"]] == ["Pavé de saumon"]
+    poisson = comparaisons(db, u, "poisson")["produits"]
+    assert {p["nom"] for p in poisson} == {"Pavé de saumon", "Limande meunière"}
+    assert next(p for p in poisson if p["nom"] == "Limande meunière")["seul"]  # une seule enseigne : montrée
+    assert comparaisons(db, u, "")["suggestions"] == ["poisson"]
+
+
+def test_recherche_pendant_la_frappe(client, links):
+    from tests.test_auth import connecter_admin
+    connecter_admin(client, links)
+    r = client.get("/comparer?onglet=moi&q=saumon&fragment=1")
+    assert r.status_code == 200 and "<main" not in r.text  # seulement les resultats
