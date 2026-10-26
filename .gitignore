@@ -23,3 +23,6 @@ __pycache__/
 
 # Réglages personnels de Claude Code
 .claude/settings.local.json
+
+# Tickets déposés par les utilisateurs (données personnelles)
+uploads/
