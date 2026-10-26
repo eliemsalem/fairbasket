@@ -157,7 +157,9 @@ EN = {
         "Cheapest for {n} of your {total} products bought in several stores, at the last price paid.",
     "le moins cher": "cheapest",
     "Aucun produit ne correspond à « {q} ».": "No product matches “{q}”.",
-    "Essayez": "Try", "Saumon, œufs, fromage…": "Salmon, eggs, cheese…",
+    "Essayez": "Try", "Autour de vous": "Near you", "promo": "deal",
+    "Prix relevés dans les magasins du quartier ces 90 derniers jours.": "Prices reported in nearby stores over the last 90 days.",
+    "Source : {source}, base ouverte de prix d'Open Food Facts, licence ODbL.": "Source: {source}, Open Food Facts' open price database, ODbL licence.", "Saumon, œufs, fromage…": "Salmon, eggs, cheese…",
     "Acheté seulement chez {enseigne} : pas encore de comparaison.": "Only bought at {enseigne}: nothing to compare yet.",
     "Les comparaisons apparaissent quand vous avez acheté le même produit dans au moins deux enseignes.":
         "Comparisons appear once you have bought the same product in at least two stores.",

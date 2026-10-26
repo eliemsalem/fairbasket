@@ -4,6 +4,10 @@
 <main class="screen">
   <div class="topbar"><a href="/accueil">← Accueil</a></div>
   <a class="btn ghost" href="/tickets/importer">Importer un historique de tickets</a>
+  <div class="card" style="display:flex;justify-content:space-between;align-items:center;gap:12px">
+    <span class="small"><strong>Open Prices</strong> : {{ open_prices[0] }} prix{% if open_prices[1] %}, copiés le {{ open_prices[1].strftime('%d/%m/%Y à %H:%M') }}{% endif %}</span>
+    <form method="post" action="/admin/open-prices"><button class="btn ghost" style="height:36px;padding:0 12px;width:auto" type="submit">Actualiser</button></form>
+  </div>
   <h1>Liste d'attente</h1>
   {% if attente %}
   <table>

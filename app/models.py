@@ -195,3 +195,25 @@ class ShoppingItem(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
 
     product: Mapped[Optional[Product]] = relationship()
+
+
+class OpenPrice(Base):
+    """Prix releve en magasin, copie depuis Open Prices (Open Food Facts, licence ODbL).
+
+    Copie locale des 90 derniers jours autour de la zone choisie, rafraichie chaque jour."""
+
+    __tablename__ = "open_prices"
+
+    id: Mapped[int] = mapped_column(primary_key=True)  # identifiant du prix chez Open Prices
+    nom: Mapped[str] = mapped_column(String(200))
+    marque: Mapped[Optional[str]] = mapped_column(String(120))
+    code_barres: Mapped[Optional[str]] = mapped_column(String(32))
+    quantite: Mapped[Optional[Decimal]] = mapped_column(Numeric(10, 3))
+    unite: Mapped[Optional[str]] = mapped_column(String(8))  # g, ml, kg, l…
+    prix: Mapped[Decimal] = mapped_column(Numeric(10, 2))
+    prix_par: Mapped[Optional[str]] = mapped_column(String(10))  # KILOGRAM pour un prix au kilo
+    promo: Mapped[bool] = mapped_column(Boolean, default=False)
+    jour: Mapped[date] = mapped_column(Date, index=True)
+    magasin: Mapped[str] = mapped_column(String(120))
+    ville: Mapped[Optional[str]] = mapped_column(String(80))
+    synchronise_le: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)

@@ -15,12 +15,12 @@ from fastapi import Depends, FastAPI, File, Form, HTTPException, Request, Upload
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
 
-from . import auth, config, i18n, liste, stats, tickets
+from . import auth, config, i18n, liste, openprices, stats, tickets
 from .db import get_db, init_db
-from .models import Product, Receipt, ReceiptItem, ShoppingItem, Store, User, now
+from .models import OpenPrice, Product, Receipt, ReceiptItem, ShoppingItem, Store, User, now
 
 APP_DIR = config.ROOT / "app"
 
@@ -39,6 +39,8 @@ log = logging.getLogger("fairbasket.pages")
 async def lifespan(_app):
     init_db()
     log.info("Démarrage : base %s, e-mails %s", config.DATABASE_URL.split(":", 1)[0], config.EMAIL_BACKEND)
+    if config.OPEN_PRICES_AUTO:
+        openprices.demarrer_synchro_quotidienne()
     yield
 
 
@@ -244,9 +246,10 @@ def comparer(request: Request, onglet: str = "moi", q: str = "", fragment: int =
     q = q.strip()[:60]
     # fragment=1 : seulement la liste des resultats (recherche pendant la frappe)
     gabarit = "_comparer_resultats.html" if fragment else "comparer.html"
+    autour = openprices.chercher(db, q)  # prix Open Prices releves dans les magasins de la zone
     if onglet == "communaute":
-        return page(request, gabarit, onglet=onglet, q=q, commu=stats.communaute(db, user, q))
-    return page(request, gabarit, onglet="moi", q=q, c=stats.comparaisons(db, user, q))
+        return page(request, gabarit, onglet=onglet, q=q, commu=stats.communaute(db, user, q), autour=autour)
+    return page(request, gabarit, onglet="moi", q=q, c=stats.comparaisons(db, user, q), autour=autour)
 
 
 # --- Liste de courses ----------------------------------------------------------
@@ -435,7 +438,17 @@ def ticket_supprimer(receipt_id: int, user: User = Depends(require_user), db: Se
 def admin(request: Request, _: User = Depends(require_admin), db: Session = Depends(get_db)):
     attente = db.scalars(select(User).where(User.statut == "attente").order_by(User.created_at)).all()
     actifs = db.scalars(select(User).where(User.statut == "actif").order_by(User.created_at)).all()
-    return page(request, "admin.html", attente=attente, actifs=actifs)
+    return page(request, "admin.html", attente=attente, actifs=actifs,
+                open_prices=(db.scalar(select(func.count()).select_from(OpenPrice)), openprices.derniere_synchro(db)))
+
+
+@app.post("/admin/open-prices")
+def admin_open_prices(_: User = Depends(require_admin), db: Session = Depends(get_db)):
+    try:
+        openprices.synchroniser(db)
+    except Exception as e:
+        log.error("Open Prices : synchronisation manuelle impossible : %s", e)
+    return RedirectResponse("/admin", status_code=303)
 
 
 @app.post("/admin/activer/{user_id}")

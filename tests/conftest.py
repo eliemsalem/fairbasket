@@ -8,6 +8,7 @@ _tmp = tempfile.mkdtemp()
 os.environ["DATABASE_URL"] = os.environ.get("TEST_DATABASE_URL", f"sqlite:///{_tmp}/test.db")
 os.environ["ADMIN_EMAILS"] = "admin@exemple.fr"
 os.environ["BASE_URL"] = "http://testserver"
+os.environ["OPEN_PRICES_AUTO"] = "0"  # pas d'appel reseau pendant les tests
 
 from fastapi.testclient import TestClient  # noqa: E402
 from sqlalchemy.orm import close_all_sessions  # noqa: E402

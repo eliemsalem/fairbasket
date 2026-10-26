@@ -51,3 +51,10 @@ CLAUDE_MODEL = os.environ.get("CLAUDE_MODEL", "claude-haiku-5-5")
 CLAUDE_EFFORT = os.environ.get("CLAUDE_EFFORT", "medium")
 MAX_TICKETS_PAR_MOIS = 60
 UPLOAD_DIR = Path(os.environ.get("UPLOAD_DIR", ROOT / "uploads"))
+
+# Open Prices : zone dont on copie les prix (par defaut Paris 19e, rayon 10 km), 90 derniers jours
+OPEN_PRICES_LAT = float(os.environ.get("OPEN_PRICES_LAT", "48.8897"))
+OPEN_PRICES_LON = float(os.environ.get("OPEN_PRICES_LON", "2.3820"))
+OPEN_PRICES_RAYON_KM = int(os.environ.get("OPEN_PRICES_RAYON_KM", "10"))
+OPEN_PRICES_JOURS = 90
+OPEN_PRICES_AUTO = os.environ.get("OPEN_PRICES_AUTO", "1") == "1"  # synchronisation quotidienne en tache de fond
