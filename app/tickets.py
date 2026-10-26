@@ -184,6 +184,16 @@ def montant_saisi(texte: str) -> Optional[Decimal]:
         return None
 
 
+def changer_magasin(db: Session, receipt: Receipt, enseigne: str, nom: str) -> None:
+    enseigne = " ".join(enseigne.split())[:60]
+    if not enseigne:
+        return
+    if enseigne.isupper() or enseigne.islower():
+        enseigne = enseigne.title()
+    receipt.store = _magasin(db, {"enseigne": enseigne, "magasin": nom or enseigne})
+    db.commit()
+
+
 def corriger_ticket(db: Session, user: User, receipt: Receipt, lignes: dict, nouvelle: Optional[tuple]) -> None:
     """lignes : {item_id: (libelle, montant)} ; nouvelle : (libelle, montant) a ajouter, ou None."""
     for it in receipt.items:

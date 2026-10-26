@@ -75,3 +75,14 @@ def test_suppression(client, links, tmp_path):
 def test_ajout_sans_connexion(client):
     r = client.post("/tickets", files={"fichier": PDF}, follow_redirects=False)
     assert r.status_code == 303 and r.headers["location"] == "/connexion"
+
+
+def test_changer_de_magasin(client, links, sans_ia):
+    sans_ia["donnees"] = {**ALDI, "enseigne": "Inconnue", "magasin": "Inconnue"}
+    connecter_admin(client, links)
+    loc = client.post("/tickets", files={"fichier": PDF}, follow_redirects=False).headers["location"]
+    assert "Magasin inconnu" in client.get(loc).text
+    client.post(loc + "/magasin", data={"enseigne": "monoprix", "magasin": "Crimée"})
+    page = client.get(loc).text
+    assert "Monoprix" in page and "Magasin inconnu" not in page
+    assert "Changer de magasin" in page

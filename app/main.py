@@ -14,9 +14,9 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from . import auth, config, tickets
+from . import auth, config, stats, tickets
 from .db import get_db, init_db
-from .models import Receipt, User, now
+from .models import Receipt, Store, User, now
 
 APP_DIR = config.ROOT / "app"
 
@@ -182,14 +182,12 @@ def presentation_fin(user: User = Depends(require_user), db: Session = Depends(g
 
 
 @app.get("/accueil", response_class=HTMLResponse)
-def accueil(request: Request, user: User = Depends(require_user), db: Session = Depends(get_db)):
+def accueil(request: Request, periode: str = "an", user: User = Depends(require_user), db: Session = Depends(get_db)):
     recents = db.scalars(select(Receipt).where(Receipt.user_id == user.id)
-                         .order_by(Receipt.achete_le.desc(), Receipt.id.desc()).limit(20)).all()
-    debut_mois = now().replace(day=1).date()
-    ce_mois = [r for r in recents if r.achete_le and r.achete_le.date() >= debut_mois]
+                         .order_by(Receipt.achete_le.desc(), Receipt.id.desc()).limit(10)).all()
+    a_corriger = db.scalars(select(Receipt).where(Receipt.user_id == user.id, Receipt.statut == "ecart")).all()
     return page(request, "accueil.html", user=user, admin=auth.is_admin(user), recents=recents,
-                total_mois=sum((r.total or Decimal(0) for r in ce_mois), Decimal(0)), nb_mois=len(ce_mois),
-                a_corriger=sum(r.statut == "ecart" for r in recents))
+                a_corriger=a_corriger, t=stats.tableau_de_bord(db, user, periode))
 
 
 # --- Tickets ----------------------------------------------------------------
@@ -239,7 +237,9 @@ def ticket_detail(request: Request, receipt_id: int, doublon: int = 0, user: Use
                   db: Session = Depends(get_db)):
     r = _ticket_de(db, user, receipt_id)
     ecart = (r.total - (r.somme_articles - r.remises_globales)) if r.total is not None else None
-    return page(request, "ticket.html", r=r, doublon=bool(doublon), ecart=ecart)
+    enseignes = sorted({e for e in db.scalars(select(Store.enseigne).join(Receipt).where(Receipt.user_id == user.id))
+                        if e != "Inconnue"} | set(COULEURS))
+    return page(request, "ticket.html", r=r, doublon=bool(doublon), ecart=ecart, enseignes=enseignes)
 
 
 @app.post("/tickets/{receipt_id}/corriger")
@@ -251,6 +251,14 @@ async def ticket_corriger(request: Request, receipt_id: int, user: User = Depend
               for it in r.items}
     nouvelle = (str(form.get("libelle_new", "")).strip(), tickets.montant_saisi(str(form.get("montant_new", ""))))
     tickets.corriger_ticket(db, user, r, lignes, nouvelle)
+    return RedirectResponse(f"/tickets/{r.id}", status_code=303)
+
+
+@app.post("/tickets/{receipt_id}/magasin")
+def ticket_magasin(receipt_id: int, enseigne: str = Form(""), magasin: str = Form(""),
+                   user: User = Depends(require_user), db: Session = Depends(get_db)):
+    r = _ticket_de(db, user, receipt_id)
+    tickets.changer_magasin(db, r, enseigne, magasin)
     return RedirectResponse(f"/tickets/{r.id}", status_code=303)
 
 
