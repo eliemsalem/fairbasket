@@ -25,9 +25,12 @@ services:
         fromDatabase:
           name: fairbasket-db
           property: connectionString
-      # tant que Brevo n'est pas branche, les liens de connexion s'affichent dans les logs Render
-      - key: EMAIL_BACKEND
-        value: console
+      # e-mails de connexion : envoyes par Brevo des que BREVO_API_KEY est renseignee,
+      # sinon le lien s'affiche dans les logs Render
+      - key: BREVO_API_KEY
+        sync: false
+      - key: EMAIL_FROM
+        sync: false
       - key: SECRET_KEY
         generateValue: true
       - key: ADMIN_EMAILS
