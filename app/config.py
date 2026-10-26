@@ -31,7 +31,8 @@ SECRET_KEY = os.environ.get("SECRET_KEY", "dev-secret-a-changer")
 BASE_URL = os.environ.get("BASE_URL", "http://localhost:8000").rstrip("/")
 # Envoi des e-mails par Brevo des que la cle est presente ; sinon le lien s'affiche dans les logs (developpement)
 BREVO_API_KEY = os.environ.get("BREVO_API_KEY", "")
-EMAIL_BACKEND = os.environ.get("EMAIL_BACKEND", "brevo" if BREVO_API_KEY else "console")
+# (une ancienne variable EMAIL_BACKEND=console restee sur Render ne doit pas bloquer l'envoi)
+EMAIL_BACKEND = "brevo" if BREVO_API_KEY else "console"
 EMAIL_FROM = os.environ.get("EMAIL_FROM", "")  # adresse d'expediteur verifiee dans Brevo
 EMAIL_FROM_NAME = os.environ.get("EMAIL_FROM_NAME", "FairBasket")
 # adresses qui ont acces a l'administration et passent la liste d'attente
