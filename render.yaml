@@ -6,7 +6,7 @@ services:
     plan: starter  # sans mise en veille
     buildCommand: pip install -r requirements.txt
     # met la structure de la base a jour avant chaque mise en ligne
-    preDeployCommand: alembic upgrade head
+    preDeployCommand: python -m scripts.attendre_base && alembic upgrade head
     startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
     healthCheckPath: /health
     # photos et PDF des tickets (~0,7 Mo par ticket) : conserves entre les mises a jour
