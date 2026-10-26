@@ -1,4 +1,5 @@
   {% if onglet == 'moi' %}
+    {% if c.produits %}<p class="small" style="margin:0">{{ _("Touchez un prix pour voir le ticket.") }}</p>{% endif %}
     {% if c.meilleure and not q %}
     <div class="card" style="background:var(--fg);color:var(--on-fg);border:0">
       <span class="eyebrow" style="color:inherit;opacity:.75">{{ _("Votre panier habituel") }}</span><br>
@@ -16,12 +17,13 @@
       <div class="card" style="display:flex;flex-direction:column;gap:8px">
         <div style="display:flex;justify-content:space-between;gap:10px;align-items:baseline"><h2>{{ p.nom }}</h2><span class="small" style="white-space:nowrap">{{ _("{n} achat(s)", n=p.achats) }}</span></div>
         {% for l in p.lignes %}
-          <div style="display:flex;align-items:center;gap:10px;font-size:14px">
-            <span class="dot" style="width:10px;height:10px;background:{{ l.enseigne|couleur }}"></span>
+          <a href="/tickets/{{ l.ticket }}?retour={{ ('/comparer?onglet=moi&q=' ~ (q|urlencode))|urlencode }}#p{{ p.id }}" class="ligne-ticket" aria-label="{{ _('Voir le ticket du {date} chez {enseigne}', date=l.date.strftime('%d/%m/%y'), enseigne=l.enseigne) }}">
+            <span class="dot" style="{{ 'width:10px;height:10px;flex:none;background:' ~ (l.enseigne|couleur) }}"></span>
             <span class="grow">{{ l.enseigne }} <span class="small">· {{ l.date.strftime('%d/%m/%y') }}</span></span>
             {% if loop.first and not p.seul %}<span class="badge">{{ _("le moins cher") }}</span>{% endif %}
             <span class="mono" style="font-weight:{{ 700 if loop.first else 500 }}">{{ l.prix|euros }}</span>
-          </div>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex:none;opacity:.5"><path d="M9 5l7 7-7 7"/></svg>
+          </a>
         {% endfor %}
         {% if p.seul %}<p class="small" style="margin:0">{{ _("Acheté seulement chez {enseigne} : pas encore de comparaison.", enseigne=p.lignes[0].enseigne) }}</p>{% endif %}
       </div>

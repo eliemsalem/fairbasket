@@ -2,7 +2,7 @@
 {% block title %}FairBasket — {{ _("Ticket") }}{% endblock %}
 {% block body %}
 <main class="screen with-nav">
-  <div class="topbar"><a href="/accueil" aria-label="{{ _('Retour') }}" style="width:44px;height:44px;display:flex;align-items:center"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></a></div>
+  <div class="topbar"><a href="{{ retour }}" aria-label="{{ _('Retour') }}" style="width:44px;height:44px;display:flex;align-items:center"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></a></div>
   {% if doublon %}<p class="card" role="status" style="margin:0"><strong>{{ _("Ce ticket était déjà enregistré.") }}</strong> {{ _("Il n'a pas été ajouté une deuxième fois.") }}</p>{% endif %}
   <div style="display:flex;align-items:center;gap:10px">
     <span class="dot" style="background:{{ (r.store.enseigne if r.store else '')|couleur }}"></span>
@@ -13,7 +13,7 @@
   {% if r.statut == 'ok' %}
     <div class="check"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex:none"><path d="M5 12l5 5 9-10"/></svg><span>{{ _("Total vérifié : la somme des {n} articles est égale au total du ticket.", n=r.items|length) }}</span></div>
     <div class="rows">
-      {% for it in r.items %}<div class="row"><span class="grow">{{ it.product.nom if it.product else it.libelle }}<br><span class="small">{{ it.libelle }}{% if it.prix_kg %} · {{ it.prix_kg|euros }}/kg{% endif %}{% if it.product and it.product.categorie %} · {{ _(it.product.categorie) }}{% endif %}</span></span><span class="mono">{{ it.montant|euros }}</span></div>{% endfor %}
+      {% for it in r.items %}<div class="row"{% if it.product_id %} id="p{{ it.product_id }}"{% endif %}><span class="grow">{{ it.product.nom if it.product else it.libelle }}<br><span class="small">{{ it.libelle }}{% if it.prix_kg %} · {{ it.prix_kg|euros }}/kg{% endif %}{% if it.product and it.product.categorie %} · {{ _(it.product.categorie) }}{% endif %}</span></span><span class="mono">{{ it.montant|euros }}</span></div>{% endfor %}
       {% if r.remises_globales %}<div class="row"><span class="grow">{{ _("Remises") }}</span><span class="mono">−{{ r.remises_globales|euros }}</span></div>{% endif %}
     </div>
   {% else %}

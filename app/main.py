@@ -411,13 +411,14 @@ def ticket_envoi(request: Request, fichier: UploadFile = File(...), importe: Opt
 
 
 @app.get("/tickets/{receipt_id}", response_class=HTMLResponse)
-def ticket_detail(request: Request, receipt_id: int, doublon: int = 0, user: User = Depends(require_user),
-                  db: Session = Depends(get_db)):
+def ticket_detail(request: Request, receipt_id: int, doublon: int = 0, retour: str = "/accueil",
+                  user: User = Depends(require_user), db: Session = Depends(get_db)):
     r = _ticket_de(db, user, receipt_id)
+    retour = retour if retour.startswith("/") and not retour.startswith("//") else "/accueil"  # page du site seulement
     ecart = (r.total - (r.somme_articles - r.remises_globales)) if r.total is not None else None
     enseignes = sorted({e for e in db.scalars(select(Store.enseigne).join(Receipt).where(Receipt.user_id == user.id))
                         if e != "Inconnue"} | set(COULEURS))
-    return page(request, "ticket.html", r=r, doublon=bool(doublon), ecart=ecart, enseignes=enseignes)
+    return page(request, "ticket.html", r=r, doublon=bool(doublon), ecart=ecart, enseignes=enseignes, retour=retour)
 
 
 @app.post("/tickets/{receipt_id}/corriger")

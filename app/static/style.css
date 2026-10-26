@@ -86,3 +86,6 @@ th{font-size:12px;color:var(--muted);font-weight:600}
 .tick{width:26px;height:26px;flex:none;border-radius:6px;border:2px solid var(--fg);background:transparent;color:var(--on-fg);display:flex;align-items:center;justify-content:center;cursor:pointer;padding:0}
 .tick.on{background:var(--fg)}
 .chip{height:40px;padding:0 14px;border-radius:999px;border:1px solid var(--field);background:var(--bg);color:var(--fg);font:inherit;font-size:14px;font-weight:600;cursor:pointer}
+.ligne-ticket{display:flex;align-items:center;gap:10px;font-size:14px;color:var(--fg);text-decoration:none;min-height:40px;border-radius:8px;margin:0 -6px;padding:0 6px}
+.ligne-ticket:hover,.ligne-ticket:focus-visible{background:var(--soft)}
+.row:target{background:var(--soft);outline:2px solid var(--fg);outline-offset:-2px;border-radius:6px;padding-left:8px;padding-right:8px}

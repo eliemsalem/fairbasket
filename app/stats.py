@@ -122,8 +122,9 @@ def tableau_de_bord(db: Session, user: User, periode: str = "an", aujourd_hui: O
     return t
 
 
-def _derniers_prix(tickets) -> tuple[dict, dict, dict]:
-    """produit -> enseigne -> (date, prix unitaire) ; produit -> nom ; produit -> nombre d'achats."""
+def _derniers_prix(tickets, ticket_de: Optional[dict] = None) -> tuple[dict, dict, dict]:
+    """produit -> enseigne -> (date, prix unitaire) ; produit -> nom ; produit -> nombre d'achats.
+    Si `ticket_de` est fourni, il recoit (produit, enseigne) -> ticket ou ce dernier prix a ete paye."""
     derniers, noms, achats = defaultdict(dict), {}, defaultdict(int)
     for r in sorted(tickets, key=lambda r: r.achete_le):
         if not r.store or r.store.enseigne in ("Inconnue", "Marché", "Commerce"):
@@ -132,6 +133,8 @@ def _derniers_prix(tickets) -> tuple[dict, dict, dict]:
             prix = _prix_unitaire(it)
             if it.product_id and prix:
                 derniers[it.product_id][r.store.enseigne] = (r.achete_le, prix)
+                if ticket_de is not None:
+                    ticket_de[(it.product_id, r.store.enseigne)] = r.id
                 noms[it.product_id] = it.product.nom
                 achats[it.product_id] += 1
     return derniers, noms, achats
@@ -147,13 +150,14 @@ def comparaisons(db: Session, user: User, recherche: str = "") -> dict:
         select(Receipt).where(Receipt.user_id == user.id, Receipt.achete_le.is_not(None))
         .options(selectinload(Receipt.items).selectinload(ReceiptItem.product), selectinload(Receipt.store))
     ).all()
-    derniers, noms, achats = _derniers_prix(tickets)
+    ticket_de = {}
+    derniers, noms, achats = _derniers_prix(tickets, ticket_de)
     produits = {p.id: p for p in db.scalars(select(Product).where(Product.id.in_(derniers.keys())))}
 
     def fiche(pid):
-        lignes = sorted(({"enseigne": e, "prix": p, "date": d} for e, (d, p) in derniers[pid].items()),
-                        key=lambda l: l["prix"])
-        return {"nom": noms[pid], "achats": achats[pid], "lignes": lignes, "seul": len(lignes) == 1}
+        lignes = sorted(({"enseigne": e, "prix": p, "date": d, "ticket": ticket_de.get((pid, e))}
+                         for e, (d, p) in derniers[pid].items()), key=lambda l: l["prix"])
+        return {"id": pid, "nom": noms[pid], "achats": achats[pid], "lignes": lignes, "seul": len(lignes) == 1}
 
     if recherche.strip():
         # a pertinence egale : d'abord ce qui se compare (plusieurs enseignes), puis le plus achete

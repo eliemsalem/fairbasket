@@ -174,6 +174,8 @@ EN = {
     "vos achats · {date}": "your purchases · {date}", "pas trouvé dans cette enseigne": "not found in this store",
     "Estimation : les formats peuvent différer d'une enseigne à l'autre (ouvrez une enseigne pour voir le produit retenu). Une enseigne avec moins d'articles trouvés paraît moins chère qu'elle ne l'est.":
         "Estimate: sizes may differ between stores (open a store to see the product used). A store with fewer items found looks cheaper than it is.",
+    "Touchez un prix pour voir le ticket.": "Tap a price to see the receipt.",
+    "Voir le ticket du {date} chez {enseigne}": "See the receipt from {date} at {enseigne}",
     "Essayez": "Try", "Autour de vous": "Near you", "promo": "deal",
     "Prix relevés dans les magasins du quartier ces 90 derniers jours.": "Prices reported in nearby stores over the last 90 days.",
     "Source : {source}, base ouverte de prix d'Open Food Facts, licence ODbL.": "Source: {source}, Open Food Facts' open price database, ODbL licence.", "Saumon, œufs, fromage…": "Salmon, eggs, cheese…",

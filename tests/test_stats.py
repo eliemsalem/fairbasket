@@ -93,3 +93,29 @@ def test_recherche_pendant_la_frappe(client, links):
     connecter_admin(client, links)
     r = client.get("/comparer?onglet=moi&q=saumon&fragment=1")
     assert r.status_code == 200 and "<main" not in r.text  # seulement les resultats
+
+
+def test_lien_vers_le_ticket(db):
+    from app.stats import comparaisons
+    u = nouvel_utilisateur(db, "a@x.fr")
+    t1 = ticket(db, u, 1, "Carrefour", "2026-10-03", [_article("X", "Œufs bio ×6", 2.49)])
+    t2 = ticket(db, u, 2, "Biocoop", "2026-10-10", [_article("O", "Œufs bio ×6", 2.82)])
+    lignes = comparaisons(db, u, "oeufs")["produits"][0]["lignes"]
+    assert {l["enseigne"]: l["ticket"] for l in lignes} == {"Carrefour": t1.id, "Biocoop": t2.id}
+
+
+def test_retour_depuis_le_ticket(client, links):
+    from tests.test_auth import connecter_admin
+    from tests.test_tickets_pages import PDF
+    from app import config, tickets
+    from app.lecture import Lecture
+    from tests.test_tickets import ALDI
+    import pytest
+    mp = pytest.MonkeyPatch()
+    mp.setattr(tickets, "lire_ticket", lambda d, m: Lecture(donnees=ALDI, modele="t", tokens_entree=1, tokens_sortie=1))
+    connecter_admin(client, links)
+    loc = client.post("/tickets", files={"fichier": PDF}, follow_redirects=False).headers["location"]
+    page = client.get(loc + "?retour=/comparer%3Fonglet%3Dmoi%26q%3Doeuf").text
+    assert 'href="/comparer?onglet=moi&amp;q=oeuf"' in page
+    assert 'href="/accueil"' in client.get(loc + "?retour=https://exemple.com").text  # jamais une autre adresse
+    mp.undo()
