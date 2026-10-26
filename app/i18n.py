@@ -122,6 +122,12 @@ EN = {
     "Le ticket est lu par une IA pour en extraire les produits et les prix. Les numéros de carte ne sont jamais conservés.":
         "The receipt is read by an AI to extract the products and prices. Card numbers are never kept.",
     "Lecture du ticket…": "Reading the receipt…",
+    "Vous pouvez en sélectionner plusieurs.": "You can select several.",
+    "Voir mon tableau de bord": "See my dashboard",
+    "Lecture {i} / {n} : {nom}": "Reading {i} / {n}: {nom}",
+    "Ajoutés : {ok} · Déjà présents : {doublons} · En échec : {echecs}":
+        "Added: {ok} · Already there: {doublons} · Failed: {echecs}",
+    "Lecture terminée": "Done",
     "Quelques secondes : l'IA lit le magasin, la date, chaque article et vérifie le total.":
         "A few seconds: the AI reads the store, the date, every item, and checks the total.",
     "Envoi impossible : vérifiez votre connexion et réessayez.": "Could not send: check your connection and try again.",
