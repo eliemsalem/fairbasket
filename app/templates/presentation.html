@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}FairBasket — Présentation{% endblock %}
+{% block body %}
+<main class="screen">
+  <div class="topbar">
+    <span class="small"><strong>{{ etape }} / {{ total }}</strong></span>
+    <form method="post" action="/presentation/fin"><button type="submit" style="background:none;border:0;font:inherit;font-weight:600;color:inherit;padding:12px 0 12px 12px;cursor:pointer">Passer</button></form>
+  </div>
+  <div class="illus" aria-hidden="true">{{ etape }}</div>
+  <div style="display:flex;flex-direction:column;gap:12px">
+    <h1>{{ titre }}</h1>
+    <p class="lede">{{ texte }}</p>
+  </div>
+  <div class="push">
+    <div class="dots" aria-hidden="true">{% for i in range(1, total + 1) %}<span class="{{ 'on' if i == etape else '' }}"></span>{% endfor %}</div>
+    {% if etape < total %}
+      <a class="btn" href="/presentation?etape={{ etape + 1 }}">Suivant</a>
+    {% else %}
+      <form method="post" action="/presentation/fin"><button class="btn" type="submit">Ajouter mon premier ticket</button></form>
+    {% endif %}
+  </div>
+</main>
+{% endblock %}

@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}FairBasket — Inscription{% endblock %}
+{% block body %}
+<main class="screen">
+  {% include "_logo.html" %}
+  <div style="display:flex;flex-direction:column;gap:10px">
+    <h1>Payez le juste prix de votre panier.</h1>
+    <p class="lede">Ajoutez vos tickets de caisse : FairBasket analyse vos dépenses et vous dit où acheter moins cher.</p>
+  </div>
+  {% if erreurs %}<ul class="errors" role="alert">{% for e in erreurs %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+  <form method="post" action="/inscription">
+    <div class="field"><label for="prenom">Prénom</label><input id="prenom" name="prenom" type="text" autocomplete="given-name" maxlength="50" required value="{{ form.prenom or '' }}"></div>
+    <div class="field"><label for="email">E-mail</label><input id="email" name="email" type="email" autocomplete="email" required value="{{ form.email or '' }}"></div>
+    <label class="check"><input type="checkbox" name="age" value="1" required {% if form.age %}checked{% endif %}><span>J'ai 18 ans ou plus.</span></label>
+    <label class="check"><input type="checkbox" name="cgu" value="1" required {% if form.cgu %}checked{% endif %}><span>J'accepte les <a href="#">conditions d'utilisation</a> et la <a href="#">politique de confidentialité</a>.</span></label>
+    <label class="check"><input type="checkbox" name="ia" value="1" required {% if form.ia %}checked{% endif %}><span>J'accepte que mes tickets soient lus par une IA (Claude, d'Anthropic) pour en extraire les produits et les prix.</span></label>
+    <label class="check sep"><input type="checkbox" name="partage" value="1" {% if form.partage %}checked{% endif %}><span><strong>Facultatif.</strong> Partager mes prix de façon anonyme pour aider les autres utilisateurs : produit, magasin, prix et date, jamais mon identité.</span></label>
+    <div class="push">
+      <button class="btn" type="submit">Recevoir mon lien de connexion</button>
+      <p class="small center">Pas de mot de passe : un lien de connexion arrive par e-mail.<br>Déjà inscrit ? <a href="/connexion"><strong>Se connecter</strong></a></p>
+    </div>
+  </form>
+</main>
+{% endblock %}

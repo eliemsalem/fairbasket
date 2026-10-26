@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}FairBasket — Administration{% endblock %}
+{% block body %}
+<main class="screen">
+  <div class="topbar"><a href="/accueil">← Accueil</a></div>
+  <h1>Liste d'attente</h1>
+  {% if attente %}
+  <table>
+    <thead><tr><th>Prénom</th><th>E-mail</th><th>Inscrit le</th><th></th></tr></thead>
+    <tbody>
+    {% for u in attente %}
+      <tr><td>{{ u.prenom }}</td><td>{{ u.email }}</td><td>{{ u.created_at.strftime('%d/%m/%Y') }}</td>
+        <td><form method="post" action="/admin/activer/{{ u.id }}"><button class="btn" style="height:36px;padding:0 12px;width:auto" type="submit">Accepter</button></form></td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% else %}<p class="lede">Personne en attente.</p>{% endif %}
+  <h2>Comptes actifs ({{ actifs|length }})</h2>
+  <table><tbody>{% for u in actifs %}<tr><td>{{ u.prenom }}</td><td>{{ u.email }}</td></tr>{% endfor %}</tbody></table>
+</main>
+{% endblock %}

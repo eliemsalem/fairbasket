@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block title %}FairBasket — Connexion{% endblock %}
+{% block body %}
+<main class="screen">
+  {% include "_logo.html" %}
+  <h1>Se connecter</h1>
+  <p class="lede">Indiquez votre adresse : nous vous envoyons un lien de connexion.</p>
+  <form method="post" action="/connexion">
+    <div class="field"><label for="email">E-mail</label><input id="email" name="email" type="email" autocomplete="email" required></div>
+    <button class="btn" type="submit">Recevoir mon lien</button>
+  </form>
+  <p class="small center">Pas encore de compte ? <a href="/"><strong>S'inscrire</strong></a></p>
+</main>
+{% endblock %}

@@ -10,5 +10,14 @@ services:
     envVars:
       - key: PYTHON_VERSION
         value: 3.12.7
+      - key: BASE_URL
+        value: https://fairbasket-jhiu.onrender.com
+      # tant que Brevo n'est pas branche, les liens de connexion s'affichent dans les logs Render
+      - key: EMAIL_BACKEND
+        value: console
+      - key: SECRET_KEY
+        generateValue: true
+      - key: ADMIN_EMAILS
+        sync: false
       - key: ANTHROPIC_API_KEY
         sync: false
