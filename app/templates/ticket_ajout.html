@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% block title %}FairBasket — Ajouter un ticket{% endblock %}
+{% block body %}
+<main class="screen with-nav">
+  <div class="topbar">
+    <a href="/accueil" aria-label="Fermer" style="width:44px;height:44px;display:flex;align-items:center"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></a>
+    <span class="small"><strong>Tickets ce mois : {{ utilises }} / {{ maximum }}</strong></span>
+  </div>
+  <div id="choix" style="display:flex;flex-direction:column;gap:20px">
+    <h1>Ajouter un ticket</h1>
+    <p class="lede">Ticket papier ou PDF reçu par e-mail : n'importe quelle enseigne.</p>
+    {% if erreur %}<p class="errors" role="alert">{{ erreur }}</p>{% endif %}
+    <form id="envoi" method="post" action="/tickets" enctype="multipart/form-data" style="gap:12px">
+      <label class="big-choice primary">
+        <input type="file" name="fichier" accept="image/*" capture="environment" class="visually-hidden">
+        <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>
+        <span style="font-size:18px;font-weight:700">Prendre une photo</span>
+        <span class="small" style="color:inherit;opacity:.75">Posez le ticket à plat, bien éclairé</span>
+      </label>
+      <label class="big-choice">
+        <input type="file" name="fichier" accept="image/*,application/pdf" class="visually-hidden">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 3h7l5 5v13H7z"/><path d="M14 3v5h5"/><path d="M10 14h6M10 17h4"/></svg>
+        <span style="font-size:17px;font-weight:700">Choisir un PDF ou une photo</span>
+      </label>
+      <noscript><button class="btn" type="submit">Envoyer</button></noscript>
+    </form>
+    <p class="small">Le ticket est lu par une IA pour en extraire les produits et les prix. Les numéros de carte ne sont jamais conservés.</p>
+  </div>
+  <div id="lecture" hidden style="display:flex;flex-direction:column;gap:16px" aria-live="polite">
+    <h1>Lecture du ticket…</h1>
+    <p class="lede">Quelques secondes : l'IA lit le magasin, la date, chaque article et vérifie le total.</p>
+    <div class="spinner" aria-hidden="true"></div>
+  </div>
+</main>
+{% with actif='' %}{% include "_nav.html" %}{% endwith %}
+<script>
+  // Des qu'un fichier est choisi : ecran de lecture, photo reduite a 2400 px dans le navigateur
+  // (une photo de telephone pese 12 a 18 Mo), puis envoi. Sans JavaScript, le formulaire classique marche.
+  const form = document.getElementById('envoi');
+
+  async function reduire(file) {
+    if (!file.type.startsWith('image/') || file.size < 2 * 1024 * 1024) return file;
+    try {
+      const bmp = await createImageBitmap(file, { imageOrientation: 'from-image' });
+      const k = Math.min(1, 2400 / Math.max(bmp.width, bmp.height));
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.round(bmp.width * k);
+      canvas.height = Math.round(bmp.height * k);
+      canvas.getContext('2d').drawImage(bmp, 0, 0, canvas.width, canvas.height);
+      const blob = await new Promise((ok) => canvas.toBlob(ok, 'image/jpeg', 0.85));
+      return blob ? new File([blob], 'ticket.jpg', { type: 'image/jpeg' }) : file;
+    } catch (e) {
+      return file;  // format que le navigateur ne sait pas lire (HEIC…) : on envoie l'original
+    }
+  }
+
+  form.querySelectorAll('input[type=file]').forEach((input) => {
+    input.addEventListener('change', async () => {
+      if (!input.files.length) return;
+      document.getElementById('choix').hidden = true;
+      document.getElementById('lecture').hidden = false;
+      const donnees = new FormData();
+      donnees.append('fichier', await reduire(input.files[0]));
+      try {
+        const rep = await fetch(form.action, { method: 'POST', body: donnees });
+        if (rep.redirected) { window.location = rep.url; return; }
+        document.open(); document.write(await rep.text()); document.close();  // page avec le message d'erreur
+      } catch (e) {
+        document.getElementById('lecture').hidden = true;
+        document.getElementById('choix').hidden = false;
+        alert("Envoi impossible : vérifiez votre connexion et réessayez.");
+      }
+    });
+  });
+</script>
+{% endblock %}

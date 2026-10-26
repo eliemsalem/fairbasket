@@ -2,7 +2,7 @@
 
 import hashlib
 from dataclasses import dataclass
-from datetime import date, datetime
+from datetime import datetime
 from decimal import Decimal
 from typing import Callable, Optional
 
@@ -10,7 +10,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from . import config
-from .lecture import Lecture, LectureImpossible, lire_ticket
+from .lecture import Lecture, LectureImpossible, image_compressee, lire_ticket
 from .models import Receipt, ReceiptItem, SharedPrice, Store, User, now
 
 TOLERANCE = Decimal("0.02")
@@ -64,7 +64,7 @@ def _date_achat(d: dict) -> Optional[datetime]:
 
 
 def enregistrer_ticket(db: Session, user: User, data: bytes, fichier_nom: str, media_type: str,
-                       lire: Callable[[bytes, str], Lecture] = lire_ticket) -> Resultat:
+                       lire: Optional[Callable[[bytes, str], Lecture]] = None) -> Resultat:
     if media_type not in TYPES_ACCEPTES:
         raise TicketRefuse("Format non pris en charge : envoyez un PDF ou une photo (JPEG, PNG).")
     sha = hashlib.sha256(data).hexdigest()
@@ -75,7 +75,7 @@ def enregistrer_ticket(db: Session, user: User, data: bytes, fichier_nom: str, m
         raise TicketRefuse(f"Limite de {config.MAX_TICKETS_PAR_MOIS} tickets par mois atteinte.")
 
     try:
-        lecture = lire(data, media_type)
+        lecture = (lire or lire_ticket)(data, media_type)
     except LectureImpossible as e:
         raise TicketRefuse(str(e))
     d = lecture.donnees
@@ -117,18 +117,61 @@ def enregistrer_ticket(db: Session, user: User, data: bytes, fichier_nom: str, m
     # garde l'original (C9) : utile pour relire un ticket ou prouver un achat
     dossier = config.UPLOAD_DIR / str(user.id)
     dossier.mkdir(parents=True, exist_ok=True)
-    ext = "pdf" if media_type == "application/pdf" else media_type.split("/")[1]
+    if media_type == "application/pdf":
+        ext, contenu = "pdf", data
+    elif len(data) > 3 * 1024 * 1024:
+        # une photo de telephone pese 12 a 18 Mo : on garde une version compressee, lisible
+        ext, contenu = "jpg", image_compressee(data)
+    else:
+        ext, contenu = media_type.split("/")[1], data
     chemin = dossier / f"{sha}.{ext}"
-    chemin.write_bytes(data)
+    chemin.write_bytes(contenu)
     receipt.fichier_chemin = str(chemin.relative_to(config.UPLOAD_DIR))
 
-    # prix anonymes : seulement avec l'accord, seulement si le ticket est juste, sans lien vers la personne
-    if user.partage_consent and statut == "ok" and store is not None and achete_le:
-        for it in items:
-            if it.illisible or it.montant <= 0:
-                continue
-            prix = it.prix_unitaire or (it.montant / it.quantite if it.quantite else it.montant)
-            db.add(SharedPrice(store=store, libelle=it.libelle, prix_unitaire=_dec(prix), prix_kg=it.prix_kg,
-                               jour=achete_le.date()))
+    if statut == "ok":
+        partager_prix(db, user, receipt)
     db.commit()
     return Resultat(receipt)
+
+
+def partager_prix(db: Session, user: User, receipt: Receipt) -> None:
+    """Prix anonymes : seulement avec l'accord, seulement pour un ticket juste, sans lien vers la personne."""
+    if not (user.partage_consent and receipt.store is not None and receipt.achete_le):
+        return
+    for it in receipt.items:
+        if it.illisible or it.montant <= 0:
+            continue
+        prix = it.prix_unitaire or (it.montant / it.quantite if it.quantite else it.montant)
+        db.add(SharedPrice(store=receipt.store, libelle=it.libelle, prix_unitaire=_dec(prix), prix_kg=it.prix_kg,
+                           jour=receipt.achete_le.date()))
+
+
+def montant_saisi(texte: str) -> Optional[Decimal]:
+    """« 5,29 », « 5.29 € » -> Decimal ; None si vide ou invalide."""
+    texte = (texte or "").replace("€", "").replace(",", ".").strip()
+    try:
+        return _dec(texte) if texte else None
+    except ArithmeticError:
+        return None
+
+
+def corriger_ticket(db: Session, user: User, receipt: Receipt, lignes: dict, nouvelle: Optional[tuple]) -> None:
+    """lignes : {item_id: (libelle, montant)} ; nouvelle : (libelle, montant) a ajouter, ou None."""
+    for it in receipt.items:
+        if it.id in lignes:
+            libelle, montant = lignes[it.id]
+            if libelle:
+                it.libelle = libelle[:120]
+            if montant is not None:
+                it.montant = montant
+                it.illisible = False
+    if nouvelle and nouvelle[0] and nouvelle[1] is not None:
+        receipt.items.append(ReceiptItem(position=len(receipt.items), libelle=nouvelle[0][:120],
+                                         quantite=Decimal("1"), montant=nouvelle[1]))
+    receipt.somme_articles = sum((it.montant for it in receipt.items), Decimal("0"))
+    etait_ok = receipt.statut == "ok"
+    juste = receipt.total is not None and abs(receipt.somme_articles - receipt.remises_globales - receipt.total) <= TOLERANCE
+    receipt.statut = "ok" if juste else "ecart"
+    if juste and not etait_ok:
+        partager_prix(db, user, receipt)
+    db.commit()

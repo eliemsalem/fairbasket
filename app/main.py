@@ -4,16 +4,19 @@ import re
 from contextlib import asynccontextmanager
 from typing import Optional
 
-from fastapi import Depends, FastAPI, Form, HTTPException, Request
+import mimetypes
+from decimal import Decimal
+
+from fastapi import Depends, FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from . import auth, config
+from . import auth, config, tickets
 from .db import get_db, init_db
-from .models import User, now
+from .models import Receipt, User, now
 
 APP_DIR = config.ROOT / "app"
 
@@ -27,6 +30,17 @@ async def lifespan(_app):
 app = FastAPI(title="FairBasket", lifespan=lifespan)
 app.mount("/static", StaticFiles(directory=APP_DIR / "static"), name="static")
 templates = Jinja2Templates(directory=APP_DIR / "templates")
+
+COULEURS = {"Carrefour": "#1F5FBF", "Monoprix": "#C2410C", "Naturalia": "#15803D", "Biocoop": "#A16207",
+            "Auchan": "#BE185D", "Aldi": "#1E3A8A", "Lidl": "#0050AA"}
+
+
+def _euros(v) -> str:
+    return "—" if v is None else f"{v:,.2f}".replace(",", "\u202f").replace(".", ",") + "\u00a0€"
+
+
+templates.env.filters["euros"] = _euros
+templates.env.filters["couleur"] = lambda enseigne: COULEURS.get(enseigne or "", "#9A9A9A")
 
 EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
@@ -97,15 +111,15 @@ def inscription(
         db.commit()
     if user.statut != "actif":
         return page(request, "attente.html", user=user)
-    return _envoyer_lien(request, db, user)
+    return _envoyer_lien(request, db, user, inscription=True)
 
 
-def _envoyer_lien(request: Request, db: Session, user: User):
+def _envoyer_lien(request: Request, db: Session, user: User, inscription: bool = False):
     link = auth.create_login_link(db, user)
     if link:
         auth.send_login_email(user, link)
-    # meme page dans tous les cas : on ne revele pas si un compte existe
-    return page(request, "lien_envoye.html", email=user.email)
+    # a la connexion, meme page dans tous les cas : on ne revele pas si un compte existe
+    return page(request, "lien_envoye.html", email=user.email, inscription=inscription)
 
 
 # --- Connexion --------------------------------------------------------------
@@ -164,12 +178,90 @@ def presentation(request: Request, etape: int = 1, user: User = Depends(require_
 def presentation_fin(user: User = Depends(require_user), db: Session = Depends(get_db)):
     user.onboarded = True
     db.commit()
-    return RedirectResponse("/accueil", status_code=303)
+    return RedirectResponse("/tickets/ajouter", status_code=303)
 
 
 @app.get("/accueil", response_class=HTMLResponse)
-def accueil(request: Request, user: User = Depends(require_user)):
-    return page(request, "accueil.html", user=user, admin=auth.is_admin(user))
+def accueil(request: Request, user: User = Depends(require_user), db: Session = Depends(get_db)):
+    recents = db.scalars(select(Receipt).where(Receipt.user_id == user.id)
+                         .order_by(Receipt.achete_le.desc(), Receipt.id.desc()).limit(20)).all()
+    debut_mois = now().replace(day=1).date()
+    ce_mois = [r for r in recents if r.achete_le and r.achete_le.date() >= debut_mois]
+    return page(request, "accueil.html", user=user, admin=auth.is_admin(user), recents=recents,
+                total_mois=sum((r.total or Decimal(0) for r in ce_mois), Decimal(0)), nb_mois=len(ce_mois),
+                a_corriger=sum(r.statut == "ecart" for r in recents))
+
+
+# --- Tickets ----------------------------------------------------------------
+
+TAILLE_MAX = 30 * 1024 * 1024
+
+
+def _ticket_de(db: Session, user: User, receipt_id: int) -> Receipt:
+    r = db.get(Receipt, receipt_id)
+    if r is None or r.user_id != user.id:
+        # un utilisateur ne voit jamais le ticket d'un autre (404, pas 403 : on ne revele rien)
+        raise HTTPException(status_code=404)
+    return r
+
+
+@app.get("/tickets/ajouter", response_class=HTMLResponse)
+def ticket_ajout(request: Request, user: User = Depends(require_user), db: Session = Depends(get_db)):
+    return page(request, "ticket_ajout.html", utilises=tickets.tickets_ce_mois(db, user),
+                maximum=config.MAX_TICKETS_PAR_MOIS)
+
+
+@app.post("/tickets")
+def ticket_envoi(request: Request, fichier: UploadFile = File(...), user: User = Depends(require_user),
+                 db: Session = Depends(get_db)):
+    data = fichier.file.read(TAILLE_MAX + 1)
+    media_type = fichier.content_type
+    if not media_type or media_type == "application/octet-stream":
+        media_type = mimetypes.guess_type(fichier.filename or "")[0] or ""
+    erreur = None
+    if not data:
+        erreur = "Le fichier est vide."
+    elif len(data) > TAILLE_MAX:
+        erreur = "Fichier trop lourd (30 Mo maximum)."
+    else:
+        try:
+            res = tickets.enregistrer_ticket(db, user, data, fichier.filename or "ticket", media_type)
+            suffixe = "?doublon=1" if res.doublon else ""
+            return RedirectResponse(f"/tickets/{res.receipt.id}{suffixe}", status_code=303)
+        except tickets.TicketRefuse as e:
+            erreur = str(e)
+    return page(request, "ticket_ajout.html", status_code=400, erreur=erreur,
+                utilises=tickets.tickets_ce_mois(db, user), maximum=config.MAX_TICKETS_PAR_MOIS)
+
+
+@app.get("/tickets/{receipt_id}", response_class=HTMLResponse)
+def ticket_detail(request: Request, receipt_id: int, doublon: int = 0, user: User = Depends(require_user),
+                  db: Session = Depends(get_db)):
+    r = _ticket_de(db, user, receipt_id)
+    ecart = (r.total - (r.somme_articles - r.remises_globales)) if r.total is not None else None
+    return page(request, "ticket.html", r=r, doublon=bool(doublon), ecart=ecart)
+
+
+@app.post("/tickets/{receipt_id}/corriger")
+async def ticket_corriger(request: Request, receipt_id: int, user: User = Depends(require_user),
+                          db: Session = Depends(get_db)):
+    r = _ticket_de(db, user, receipt_id)
+    form = await request.form()
+    lignes = {it.id: (str(form.get(f"libelle_{it.id}", "")).strip(), tickets.montant_saisi(str(form.get(f"montant_{it.id}", ""))))
+              for it in r.items}
+    nouvelle = (str(form.get("libelle_new", "")).strip(), tickets.montant_saisi(str(form.get("montant_new", ""))))
+    tickets.corriger_ticket(db, user, r, lignes, nouvelle)
+    return RedirectResponse(f"/tickets/{r.id}", status_code=303)
+
+
+@app.post("/tickets/{receipt_id}/supprimer")
+def ticket_supprimer(receipt_id: int, user: User = Depends(require_user), db: Session = Depends(get_db)):
+    r = _ticket_de(db, user, receipt_id)
+    if r.fichier_chemin:
+        (config.UPLOAD_DIR / r.fichier_chemin).unlink(missing_ok=True)
+    db.delete(r)
+    db.commit()
+    return RedirectResponse("/accueil", status_code=303)
 
 
 # --- Administration : liste d'attente --------------------------------------

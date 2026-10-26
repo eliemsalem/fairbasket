@@ -4,7 +4,11 @@
 <main class="screen">
   <div class="icon-circle"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg></div>
   <h1>Vérifiez vos e-mails</h1>
+  {% if inscription %}
+  <p class="lede">Votre compte est créé. Un lien de connexion vient d'être envoyé à <strong>{{ email }}</strong>. Il est valable 15 minutes et ne sert qu'une fois.</p>
+  {% else %}
   <p class="lede">Si un compte actif existe pour <strong>{{ email }}</strong>, un lien de connexion vient d'y être envoyé. Il est valable 15 minutes et ne sert qu'une fois.</p>
+  {% endif %}
   <div class="push">
     <a class="btn ghost" href="/connexion">Renvoyer un lien</a>
     <p class="small center">Rien reçu ? Regardez dans les spams, ou <a href="/connexion"><strong>changez d'adresse</strong></a>.</p>

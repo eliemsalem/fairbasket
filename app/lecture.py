@@ -83,14 +83,18 @@ class LectureImpossible(Exception):
     pass
 
 
-def _image_pour_api(data: bytes) -> tuple[str, bytes]:
-    """Redresse la photo (EXIF), la reduit et la recompresse pour limiter le poids et le cout."""
+def image_compressee(data: bytes) -> bytes:
+    """Redresse la photo (EXIF), la reduit a 2400 px et la recompresse en JPEG."""
     img = Image.open(io.BytesIO(data))
     img = ImageOps.exif_transpose(img).convert("RGB")
     img.thumbnail((2400, 2400))
     out = io.BytesIO()
     img.save(out, format="JPEG", quality=85)
-    return "image/jpeg", out.getvalue()
+    return out.getvalue()
+
+
+def _image_pour_api(data: bytes) -> tuple[str, bytes]:
+    return "image/jpeg", image_compressee(data)
 
 
 def _bloc_document(data: bytes, media_type: str) -> dict:
