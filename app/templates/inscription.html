@@ -7,6 +7,7 @@
     <h1>Payez le juste prix de votre panier.</h1>
     <p class="lede">Ajoutez vos tickets de caisse : FairBasket analyse vos dépenses et vous dit où acheter moins cher.</p>
   </div>
+  {% if supprime %}<p class="card" role="status" style="margin:0">Votre compte et toutes vos données ont été supprimés.</p>{% endif %}
   {% if erreurs %}<ul class="errors" role="alert">{% for e in erreurs %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
   <form method="post" action="/inscription">
     <div class="field"><label for="prenom">Prénom</label><input id="prenom" name="prenom" type="text" autocomplete="given-name" maxlength="50" required value="{{ form.prenom or '' }}"></div>

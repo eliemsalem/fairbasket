@@ -4,19 +4,22 @@ import re
 from contextlib import asynccontextmanager
 from typing import Optional
 
+import csv
+import io
 import mimetypes
+import shutil
 from decimal import Decimal
 
 from fastapi import Depends, FastAPI, File, Form, HTTPException, Request, UploadFile
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from . import auth, config, stats, tickets
 from .db import get_db, init_db
-from .models import Receipt, Store, User, now
+from .models import Receipt, ReceiptItem, Store, User, now
 
 APP_DIR = config.ROOT / "app"
 
@@ -69,10 +72,10 @@ def health():
 # --- Inscription -----------------------------------------------------------
 
 @app.get("/", response_class=HTMLResponse)
-def accueil_public(request: Request, user: Optional[User] = Depends(current_user)):
+def accueil_public(request: Request, supprime: int = 0, user: Optional[User] = Depends(current_user)):
     if user:
         return RedirectResponse("/accueil", status_code=303)
-    return page(request, "inscription.html", form={})
+    return page(request, "inscription.html", form={}, supprime=bool(supprime))
 
 
 @app.post("/inscription", response_class=HTMLResponse)
@@ -197,6 +200,60 @@ def comparer(request: Request, onglet: str = "moi", q: str = "", user: User = De
     if onglet == "communaute":
         return page(request, "comparer.html", onglet=onglet, q=q, commu=stats.communaute(db, user, q))
     return page(request, "comparer.html", onglet="moi", q=q, c=stats.comparaisons(db, user, q))
+
+
+# --- Profil et donnees personnelles -------------------------------------------
+
+@app.get("/profil", response_class=HTMLResponse)
+def profil(request: Request, user: User = Depends(require_user), db: Session = Depends(get_db)):
+    return page(request, "profil.html", user=user, utilises=tickets.tickets_ce_mois(db, user),
+                maximum=config.MAX_TICKETS_PAR_MOIS, nb_tickets=len(user.receipts))
+
+
+@app.post("/profil/partage")
+def profil_partage(partage: Optional[str] = Form(None), user: User = Depends(require_user),
+                   db: Session = Depends(get_db)):
+    user.partage_consent = bool(partage)
+    user.partage_consent_at = now() if partage else None
+    db.commit()
+    return RedirectResponse("/profil", status_code=303)
+
+
+@app.get("/profil/export.csv")
+def profil_export(user: User = Depends(require_user), db: Session = Depends(get_db)):
+    """Toutes les donnees de la personne, lisibles dans Excel (point-virgule, UTF-8 avec BOM)."""
+    rows = db.scalars(select(Receipt).where(Receipt.user_id == user.id).order_by(Receipt.achete_le)
+                      .options(selectinload(Receipt.items).selectinload(ReceiptItem.product),
+                               selectinload(Receipt.store))).all()
+    out = io.StringIO()
+    w = csv.writer(out, delimiter=";")
+    w.writerow(["date", "heure", "enseigne", "magasin", "total_ticket", "statut", "produit", "libelle_ticket",
+                "categorie", "quantite", "montant", "prix_kg", "fichier"])
+    virg = lambda v: "" if v is None else str(v).replace(".", ",")  # noqa: E731
+    for r in rows:
+        for it in r.items or [None]:
+            w.writerow([r.achete_le.strftime("%d/%m/%Y") if r.achete_le else "",
+                        r.achete_le.strftime("%H:%M") if r.achete_le else "",
+                        r.store.enseigne if r.store else "", r.store.nom if r.store else "", virg(r.total), r.statut,
+                        it.product.nom if it and it.product else "", it.libelle if it else "",
+                        it.product.categorie if it and it.product else "", virg(it.quantite) if it else "",
+                        virg(it.montant) if it else "", virg(it.prix_kg) if it else "", r.fichier_nom])
+    return Response("\ufeff" + out.getvalue(), media_type="text/csv; charset=utf-8",
+                    headers={"Content-Disposition": 'attachment; filename="fairbasket-mes-tickets.csv"'})
+
+
+@app.post("/profil/supprimer")
+def profil_supprimer(confirmation: str = Form(""), user: User = Depends(require_user),
+                     db: Session = Depends(get_db)):
+    if confirmation != "SUPPRIMER":
+        return RedirectResponse("/profil?erreur=confirmation", status_code=303)
+    # tickets, articles, sessions et liens partent avec le compte ; les prix partages restent, sans lien avec lui
+    shutil.rmtree(config.UPLOAD_DIR / str(user.id), ignore_errors=True)
+    db.delete(user)
+    db.commit()
+    resp = RedirectResponse("/?supprime=1", status_code=303)
+    resp.delete_cookie(auth.SESSION_COOKIE)
+    return resp
 
 
 # --- Tickets ----------------------------------------------------------------
