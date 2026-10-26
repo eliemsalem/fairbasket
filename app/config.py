@@ -37,7 +37,8 @@ MAX_LINKS_PER_HOUR = 5
 CGU_VERSION = "2026-10-26"
 
 # Lecture des tickets par l'IA (modele et niveau d'effort reglables sans toucher au code)
-CLAUDE_MODEL = os.environ.get("CLAUDE_MODEL", "claude-opus-5-5")
+# Haiku : 8/8 sur le test de reference du 26/10/2026, ~0,0015 $ par ticket (Opus : 8/8, ~0,045 $)
+CLAUDE_MODEL = os.environ.get("CLAUDE_MODEL", "claude-haiku-5-5")
 CLAUDE_EFFORT = os.environ.get("CLAUDE_EFFORT", "medium")
 MAX_TICKETS_PAR_MOIS = 60
 UPLOAD_DIR = Path(os.environ.get("UPLOAD_DIR", ROOT / "uploads"))

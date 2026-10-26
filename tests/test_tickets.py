@@ -124,3 +124,11 @@ def test_prix_partages_seulement_avec_accord(db):
     # anonyme : ni utilisateur, ni ticket, ni heure
     assert not hasattr(SharedPrice, "user_id") and not hasattr(SharedPrice, "receipt_id")
     assert str(prix[0].jour) == "2026-09-25"
+
+
+def test_enseigne_meme_ecriture(db):
+    u = nouvel_utilisateur(db, "a@x.fr")
+    r1 = enregistrer_ticket(db, u, b"a", "a.pdf", "application/pdf", lire=fausse_lecture(ALDI)).receipt
+    d = {**ALDI, "enseigne": "ALDI", "heure": "19:00"}
+    r2 = enregistrer_ticket(db, u, b"b", "b.pdf", "application/pdf", lire=fausse_lecture(d)).receipt
+    assert r1.store_id == r2.store_id

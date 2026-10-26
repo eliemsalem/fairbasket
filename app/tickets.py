@@ -40,6 +40,8 @@ def tickets_ce_mois(db: Session, user: User) -> int:
 
 def _magasin(db: Session, d: dict) -> Optional[Store]:
     enseigne = (d.get("enseigne") or "").strip()[:60]
+    if enseigne.isupper():
+        enseigne = enseigne.title()  # « MONOPRIX » et « Monoprix » sont la meme enseigne
     nom = (d.get("magasin") or enseigne).strip().upper()[:120]
     if not enseigne:
         return None

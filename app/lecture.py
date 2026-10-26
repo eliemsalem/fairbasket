@@ -104,13 +104,16 @@ def _bloc_document(data: bytes, media_type: str) -> dict:
 
 def lire_ticket(data: bytes, media_type: str, client: Optional[anthropic.Anthropic] = None) -> Lecture:
     client = client or anthropic.Anthropic()
+    repli = {}
+    if "haiku" not in config.CLAUDE_MODEL:
+        # si le modele refuse, l'API relance la meme demande sur le modele de repli recommande
+        # (Haiku n'a pas de repli cote serveur)
+        repli = {"betas": ["server-side-fallback-2026-07-01"], "fallbacks": "default"}
     response = client.beta.messages.create(
         model=config.CLAUDE_MODEL,
         max_tokens=16000,
         system=CONSIGNES,
-        betas=["server-side-fallback-2026-07-01"],
-        # si le modele refuse, l'API relance la meme demande sur le modele de repli recommande
-        fallbacks="default",
+        **repli,
         output_config={"effort": config.CLAUDE_EFFORT, "format": {"type": "json_schema", "schema": SCHEMA}},
         messages=[{"role": "user", "content": [_bloc_document(data, media_type),
                                                {"type": "text", "text": "Extrais les données de ce ticket."}]}],
