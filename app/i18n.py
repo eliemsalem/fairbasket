@@ -157,6 +157,23 @@ EN = {
         "Cheapest for {n} of your {total} products bought in several stores, at the last price paid.",
     "le moins cher": "cheapest",
     "Aucun produit ne correspond à « {q} ».": "No product matches “{q}”.",
+    "Combien coûte ma liste dans chaque enseigne ?": "How much is my list in each store?",
+    "Combien coûte mon panier habituel dans chaque enseigne ?": "How much is my usual basket in each store?",
+    "Comparer mon panier": "Compare my basket", "Combien coûte mon panier habituel ?": "How much is my usual basket?",
+    "Combien coûte ma liste ?": "How much is my list?",
+    "Ajoutez des articles à votre liste, ou quelques tickets, pour comparer un panier.":
+        "Add items to your list, or a few receipts, to compare a basket.",
+    "Vos {n} produits les plus achetés.": "Your {n} most bought products.",
+    "Les {n} articles de votre liste.": "The {n} items on your list.",
+    "Vos propres prix d'abord, sinon les prix relevés dans le quartier.": "Your own prices first, otherwise prices reported nearby.",
+    "Panier malin": "Smart basket",
+    "Calcul en cours : on cherche chaque article dans les magasins du quartier…": "Calculating: looking for each item in nearby stores…",
+    "En prenant chaque article là où il est le moins cher ({n} / {total} articles trouvés).":
+        "Buying each item where it is cheapest ({n} / {total} items found).",
+    "{n} / {total} articles trouvés": "{n} / {total} items found",
+    "vos achats · {date}": "your purchases · {date}", "pas trouvé dans cette enseigne": "not found in this store",
+    "Estimation : les formats peuvent différer d'une enseigne à l'autre (ouvrez une enseigne pour voir le produit retenu). Une enseigne avec moins d'articles trouvés paraît moins chère qu'elle ne l'est.":
+        "Estimate: sizes may differ between stores (open a store to see the product used). A store with fewer items found looks cheaper than it is.",
     "Essayez": "Try", "Autour de vous": "Near you", "promo": "deal",
     "Prix relevés dans les magasins du quartier ces 90 derniers jours.": "Prices reported in nearby stores over the last 90 days.",
     "Source : {source}, base ouverte de prix d'Open Food Facts, licence ODbL.": "Source: {source}, Open Food Facts' open price database, ODbL licence.", "Saumon, œufs, fromage…": "Salmon, eggs, cheese…",

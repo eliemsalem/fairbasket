@@ -1,0 +1,36 @@
+  {% if not r %}
+    <div class="card"><p class="lede" style="margin:0">{{ _("Ajoutez des articles à votre liste, ou quelques tickets, pour comparer un panier.") }}</p></div>
+  {% else %}
+    <p class="small" style="margin:0">{% if habituel %}{{ _("Vos {n} produits les plus achetés.", n=r.n) }}{% else %}{{ _("Les {n} articles de votre liste.", n=r.n) }}{% endif %} {{ _("Vos propres prix d'abord, sinon les prix relevés dans le quartier.") }}</p>
+
+    {% if r.trouves_malin %}
+    <div class="card" style="background:var(--fg);color:var(--on-fg);border:0">
+      <span class="eyebrow" style="color:inherit;opacity:.75">{{ _("Panier malin") }}</span><br>
+      <strong class="mono" style="font-size:28px">{{ r.total_malin|euros }}</strong><br>
+      <span style="font-size:14px;opacity:.85">{{ _("En prenant chaque article là où il est le moins cher ({n} / {total} articles trouvés).", n=r.trouves_malin, total=r.n) }}</span>
+    </div>
+    {% endif %}
+
+    <section style="display:flex;flex-direction:column;gap:10px">
+      <h2>{{ _("Par enseigne") }}</h2>
+      {% for e in r.enseignes %}
+        <details class="card">
+          <summary style="cursor:pointer;display:flex;align-items:center;gap:10px;list-style:none">
+            <span class="dot" style="width:10px;height:10px;background:{{ e.enseigne|couleur }}"></span>
+            <span class="grow"><strong>{{ e.enseigne }}</strong><br><span class="small">{{ _("{n} / {total} articles trouvés", n=e.trouves, total=r.n) }}</span></span>
+            <span class="mono" style="font-size:18px;font-weight:700">{{ e.total|euros }}</span>
+          </summary>
+          <div class="rows" style="margin-top:10px">
+            {% for nom, c in e.lignes %}
+              <div class="row" style="align-items:flex-start">
+                <span class="grow">{{ nom }}{% if c %}<br><span class="small">{% if c.source == 'moi' %}{{ _("vos achats · {date}", date=c.jour.strftime('%d/%m/%y')) }}{% else %}{{ c.produit }} · {{ c.magasin }} · {{ c.jour.strftime('%d/%m') }}{% if c.kilo %} · {{ c.kilo|euros }}/{{ c.unite }}{% endif %}{% endif %}</span>{% else %}<br><span class="small">{{ _("pas trouvé dans cette enseigne") }}</span>{% endif %}</span>
+                <span class="mono">{{ c.prix|euros if c else '—' }}</span>
+              </div>
+            {% endfor %}
+          </div>
+        </details>
+      {% endfor %}
+    </section>
+    <p class="small">{{ _("Estimation : les formats peuvent différer d'une enseigne à l'autre (ouvrez une enseigne pour voir le produit retenu). Une enseigne avec moins d'articles trouvés paraît moins chère qu'elle ne l'est.") }}</p>
+    <p class="small" style="margin:0">{{ _("Source : {source}, base ouverte de prix d'Open Food Facts, licence ODbL.", source="Open Prices") }} <a href="https://prices.openfoodfacts.org" rel="noopener">prices.openfoodfacts.org</a></p>
+  {% endif %}

@@ -40,6 +40,8 @@
   </section>
   {% endif %}
 
+  <a class="btn" href="/liste/comparer">{{ _("Combien coûte ma liste dans chaque enseigne ?") if v.restants else _("Combien coûte mon panier habituel dans chaque enseigne ?") }}</a>
+
   {% if v.magasins %}
   <section class="card" style="background:var(--soft);border:0;display:flex;flex-direction:column;gap:10px">
     <h2>{{ _("Où aller pour payer le moins cher") }}</h2>

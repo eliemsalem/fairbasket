@@ -18,7 +18,7 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
 
-from . import auth, config, i18n, liste, openprices, stats, tickets
+from . import auth, config, i18n, liste, openprices, panier, stats, tickets
 from .db import get_db, init_db
 from .models import OpenPrice, Product, Receipt, ReceiptItem, ShoppingItem, Store, User, now
 
@@ -257,6 +257,24 @@ def comparer(request: Request, onglet: str = "moi", q: str = "", fragment: int =
 @app.get("/liste", response_class=HTMLResponse)
 def liste_page(request: Request, user: User = Depends(require_user), db: Session = Depends(get_db)):
     return page(request, "liste.html", v=liste.vue(db, user))
+
+
+@app.get("/liste/comparer", response_class=HTMLResponse)
+def liste_comparer(request: Request, fragment: int = 0, direct: int = 0, user: User = Depends(require_user),
+                   db: Session = Depends(get_db)):
+    """Combien coute la liste (ou, si elle est vide, le panier habituel) dans chaque enseigne.
+    La page s'affiche d'abord vide, puis le calcul arrive (fragment=1) : il peut prendre quelques secondes."""
+    habituel_affiche = not [i for i in user.liste if not i.coche]
+    if not fragment and not direct:
+        return page(request, "panier.html", habituel=habituel_affiche, calcul_differe=True)
+    tickets_user = liste._tickets(db, user)
+    articles = [(i.nom, i.product_id) for i in user.liste if not i.coche]
+    habituel = not articles
+    if habituel:
+        _, noms, achats = stats._derniers_prix(tickets_user)
+        articles = [(noms[pid], pid) for pid, _ in sorted(achats.items(), key=lambda kv: -kv[1])[:10]]
+    return page(request, "_panier_resultats.html" if fragment else "panier.html", habituel=habituel,
+                r=panier.comparer_panier(db, user, articles, tickets_user) if articles else None)
 
 
 @app.post("/liste")

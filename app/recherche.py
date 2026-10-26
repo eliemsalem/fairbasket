@@ -7,6 +7,7 @@ permet de trouver un produit par ce qu'il est, meme si son nom ne contient pas l
 """
 
 import math
+import re
 from collections import Counter
 
 from .tickets import cle_produit
@@ -26,8 +27,14 @@ def _cosinus(a: Counter, b: Counter) -> float:
     return commun / math.sqrt(sum(v * v for v in a.values()) * sum(v * v for v in b.values()))
 
 
+MOTS_VIDES = {"de", "du", "des", "la", "le", "les", "au", "aux", "et", "en", "a", "l", "d", "un", "une", "avec", "sans",
+              "pour", "sur", "the", "of", "and", "with"}
+
+
 def _mots(texte: str) -> list:
-    return [m for m in cle_produit(texte).replace("×", " ").split() if len(m) > 1]
+    """Mots utiles : decoupes aussi sur les traits d'union et apostrophes, sans les petits mots (de, au…)."""
+    brut = re.sub(r"[^0-9a-z%]+", " ", cle_produit(texte))
+    return [m for m in brut.split() if len(m) > 1 and m not in MOTS_VIDES]
 
 
 def _ressemblance(mot_tape: str, mot: str) -> float:
