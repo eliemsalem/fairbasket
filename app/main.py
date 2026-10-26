@@ -160,7 +160,8 @@ def inscription(
 def _envoyer_lien(request: Request, db: Session, user: User, inscription: bool = False):
     link = auth.create_login_link(db, user)
     if link:
-        auth.send_login_email(user, link)
+        if not auth.send_login_email(user, link):
+            auth.annuler_lien(db, link)
     else:
         log.info("Lien non envoyé au compte %s : limite de liens par heure atteinte", user.id)
     # a la connexion, meme page dans tous les cas : on ne revele pas si un compte existe
@@ -444,6 +445,6 @@ def admin_activer(user_id: int, _: User = Depends(require_admin), db: Session = 
         user.statut, user.activated_at = "actif", now()
         db.commit()
         link = auth.create_login_link(db, user)
-        if link:
-            auth.send_login_email(user, link)
+        if link and not auth.send_login_email(user, link):
+            auth.annuler_lien(db, link)
     return RedirectResponse("/admin", status_code=303)

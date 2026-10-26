@@ -93,3 +93,14 @@ def test_limite_de_liens_par_heure(client, links):
     for _ in range(config.MAX_LINKS_PER_HOUR + 3):
         client.post("/connexion", data={"email": "admin@exemple.fr"}) if links else inscrire(client, "admin@exemple.fr")
     assert len(links["admin@exemple.fr"]) == config.MAX_LINKS_PER_HOUR
+
+
+def test_envoi_rate_ne_compte_pas(client, monkeypatch):
+    from app import auth as module_auth
+    monkeypatch.setattr(module_auth, "send_login_email", lambda user, link: False)  # Brevo refuse tout
+    for _ in range(config.MAX_LINKS_PER_HOUR + 2):
+        client.post("/connexion", data={"email": "admin@exemple.fr"}) if _ else inscrire(client, "admin@exemple.fr")
+    envoyes = []
+    monkeypatch.setattr(module_auth, "send_login_email", lambda user, link: envoyes.append(link) or True)
+    client.post("/connexion", data={"email": "admin@exemple.fr"})
+    assert len(envoyes) == 1  # la limite n'a pas ete consommee par les echecs

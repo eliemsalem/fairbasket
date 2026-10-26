@@ -20,7 +20,8 @@ from app.db import Base, engine  # noqa: E402
 def links(monkeypatch):
     """Liens de connexion « envoyés », par adresse."""
     sent = {}
-    monkeypatch.setattr(auth, "send_login_email", lambda user, link: sent.setdefault(user.email, []).append(link))
+    monkeypatch.setattr(auth, "send_login_email",
+                        lambda user, link: sent.setdefault(user.email, []).append(link) or True)
     return sent
 
 

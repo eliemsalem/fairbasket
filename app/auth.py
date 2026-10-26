@@ -98,11 +98,20 @@ def _html(texte: str, lien: str) -> str:
     return f'<div style="font-family:Arial,sans-serif;font-size:16px;line-height:1.5;color:#111">{corps}</div>'
 
 
-def send_login_email(user: User, link: str) -> None:
+def annuler_lien(db: Session, link: str) -> None:
+    """Lien jamais parti (envoi refuse) : on le supprime pour qu'il ne compte pas dans la limite par heure."""
+    row = db.scalar(select(LoginToken).where(LoginToken.token_hash == _hash(link.rsplit("/", 1)[-1])))
+    if row:
+        db.delete(row)
+        db.commit()
+
+
+def send_login_email(user: User, link: str) -> bool:
+    """Envoie le lien ; False si l'envoi a echoue."""
     if config.EMAIL_BACKEND == "console":
         # developpement : pas d'envoi, le lien s'affiche dans le terminal
         log.warning("Lien de connexion pour %s : %s", user.email, link)
-        return
+        return True
     sujet, modele = MAILS.get(user.lang, MAILS["fr"])
     texte = modele.format(prenom=user.prenom, lien=link)
     corps = json.dumps({
@@ -115,11 +124,14 @@ def send_login_email(user: User, link: str) -> None:
     try:
         with urllib.request.urlopen(req, timeout=10) as rep:
             log.info("E-mail de connexion envoyé à %s (Brevo : %s)", user.email, rep.status)
+        return True
     except urllib.error.HTTPError as e:  # reponse de Brevo : on garde son message, utile pour comprendre
         log.error("Échec d'envoi de l'e-mail de connexion à %s : Brevo %s %s", user.email, e.code,
                   e.read().decode(errors="replace")[:300])
+        return False
     except Exception as e:  # reseau... ; on ne bloque pas la page, et jamais le lien dans les logs
         log.error("Échec d'envoi de l'e-mail de connexion à %s : %s", user.email, e)
+        return False
 
 
 def is_admin(user: Optional[User]) -> bool:
