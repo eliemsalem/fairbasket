@@ -17,9 +17,9 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
-from . import auth, config, stats, tickets
+from . import auth, config, liste, stats, tickets
 from .db import get_db, init_db
-from .models import Receipt, ReceiptItem, Store, User, now
+from .models import Product, Receipt, ReceiptItem, ShoppingItem, Store, User, now
 
 APP_DIR = config.ROOT / "app"
 
@@ -200,6 +200,43 @@ def comparer(request: Request, onglet: str = "moi", q: str = "", user: User = De
     if onglet == "communaute":
         return page(request, "comparer.html", onglet=onglet, q=q, commu=stats.communaute(db, user, q))
     return page(request, "comparer.html", onglet="moi", q=q, c=stats.comparaisons(db, user, q))
+
+
+# --- Liste de courses ----------------------------------------------------------
+
+@app.get("/liste", response_class=HTMLResponse)
+def liste_page(request: Request, user: User = Depends(require_user), db: Session = Depends(get_db)):
+    return page(request, "liste.html", v=liste.vue(db, user))
+
+
+@app.post("/liste")
+def liste_ajout(nom: str = Form(""), product_id: Optional[int] = Form(None), user: User = Depends(require_user),
+                db: Session = Depends(get_db)):
+    liste.ajouter(db, user, nom, db.get(Product, product_id) if product_id else None)
+    return RedirectResponse("/liste", status_code=303)
+
+
+def _ligne_de(db: Session, user: User, item_id: int) -> ShoppingItem:
+    item = db.get(ShoppingItem, item_id)
+    if item is None or item.user_id != user.id:
+        raise HTTPException(status_code=404)
+    return item
+
+
+@app.post("/liste/{item_id}/cocher")
+def liste_cocher(item_id: int, user: User = Depends(require_user), db: Session = Depends(get_db)):
+    item = _ligne_de(db, user, item_id)
+    item.coche = not item.coche
+    db.commit()
+    return RedirectResponse("/liste", status_code=303)
+
+
+@app.post("/liste/vider")
+def liste_vider(user: User = Depends(require_user), db: Session = Depends(get_db)):
+    for item in [i for i in user.liste if i.coche]:
+        db.delete(item)
+    db.commit()
+    return RedirectResponse("/liste", status_code=303)
 
 
 # --- Profil et donnees personnelles -------------------------------------------

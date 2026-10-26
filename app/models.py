@@ -38,6 +38,7 @@ class User(Base):
     login_tokens: Mapped[list["LoginToken"]] = relationship(back_populates="user", cascade="all, delete-orphan")
     sessions: Mapped[list["UserSession"]] = relationship(back_populates="user", cascade="all, delete-orphan")
     receipts: Mapped[list["Receipt"]] = relationship(cascade="all, delete-orphan")
+    liste: Mapped[list["ShoppingItem"]] = relationship(cascade="all, delete-orphan", order_by="ShoppingItem.id")
 
 
 class LoginToken(Base):
@@ -176,3 +177,18 @@ class SharedPrice(Base):
     prix_unitaire: Mapped[Decimal] = mapped_column(Numeric(10, 2))
     prix_kg: Mapped[Optional[Decimal]] = mapped_column(Numeric(10, 2))
     jour: Mapped[date] = mapped_column(Date)  # le jour seulement, pas l'heure
+
+
+class ShoppingItem(Base):
+    """Ligne de la liste de courses d'un utilisateur."""
+
+    __tablename__ = "shopping_items"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    nom: Mapped[str] = mapped_column(String(120))
+    product_id: Mapped[Optional[int]] = mapped_column(ForeignKey("products.id"))
+    coche: Mapped[bool] = mapped_column(Boolean, default=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
+
+    product: Mapped[Optional[Product]] = relationship()

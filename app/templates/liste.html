@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% block title %}FairBasket — Ma liste{% endblock %}
+{% block body %}
+<main class="screen with-nav" style="gap:18px">
+  <div style="display:flex;justify-content:space-between;align-items:flex-end">
+    <h1 style="font-size:24px">Ma liste</h1>
+    <div style="text-align:right"><span class="small"><strong>Estimation</strong></span><br><span class="mono" style="font-size:22px;font-weight:700">{{ v.total|euros }}</span></div>
+  </div>
+
+  <form method="post" action="/liste" style="flex-direction:row;gap:8px">
+    <label class="visually-hidden" for="nom">Ajouter un article</label>
+    <input id="nom" name="nom" type="text" placeholder="Ajouter un article" autocomplete="off" style="height:48px;flex-grow:1;min-width:0;border:1px solid var(--field);border-radius:12px;padding:0 14px;font:inherit;color:var(--fg);background:var(--bg)">
+    <button type="button" id="micro" aria-label="Dicter un article" hidden class="icon-btn"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></button>
+    <button type="submit" aria-label="Ajouter" class="icon-btn" style="background:var(--fg);color:var(--on-fg);border:0"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button>
+  </form>
+
+  {% if v.lignes %}
+  <div class="rows">
+    {% for l in v.lignes %}
+      <form method="post" action="/liste/{{ l.item.id }}/cocher" class="row" style="flex-direction:row;gap:12px;min-height:56px;padding:6px 0">
+        <button type="submit" class="tick{{ ' on' if l.item.coche }}" aria-label="{{ 'Décocher' if l.item.coche else 'Cocher' }} {{ l.item.nom }}" aria-pressed="{{ 'true' if l.item.coche else 'false' }}">{% if l.item.coche %}<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"/></svg>{% endif %}</button>
+        <span class="grow" style="{{ 'text-decoration:line-through;color:var(--muted)' if l.item.coche }}">{{ l.item.nom }}{% if l.enseigne %}<br><span class="small" style="display:inline-flex;gap:6px;align-items:center"><span class="dot" style="width:8px;height:8px;background:{{ l.enseigne|couleur }}"></span>{{ l.enseigne }}</span>{% endif %}</span>
+        <span class="mono" style="font-size:14px">{{ l.prix|euros if l.prix else '' }}</span>
+      </form>
+    {% endfor %}
+  </div>
+  {% if v.restants < v.lignes|length %}<form method="post" action="/liste/vider"><button class="btn ghost" type="submit">Retirer les articles cochés</button></form>{% endif %}
+  {% else %}
+  <div class="card"><p class="lede" style="margin:0">Votre liste est vide. Ajoutez un article, ou piochez dans ce que vous achetez souvent.</p></div>
+  {% endif %}
+
+  {% if v.suggestions %}
+  <section style="display:flex;flex-direction:column;gap:10px">
+    <h2>Vous en achetez souvent</h2>
+    <div style="display:flex;flex-wrap:wrap;gap:8px">
+      {% for s in v.suggestions %}
+        <form method="post" action="/liste" style="display:inline"><input type="hidden" name="nom" value="{{ s.nom }}"><input type="hidden" name="product_id" value="{{ s.id }}"><button type="submit" class="chip">+ {{ s.nom }}</button></form>
+      {% endfor %}
+    </div>
+  </section>
+  {% endif %}
+
+  {% if v.magasins %}
+  <section class="card" style="background:var(--soft);border:0;display:flex;flex-direction:column;gap:10px">
+    <h2>Où aller pour payer le moins cher</h2>
+    {% for m, n in v.magasins %}
+      <div style="display:flex;align-items:center;gap:10px;font-size:14px"><span class="dot" style="width:10px;height:10px;background:{{ m|couleur }}"></span><span class="grow">{{ m }}</span><span class="small">{{ n }} article{{ 's' if n > 1 }}</span></div>
+    {% endfor %}
+    <p class="small" style="margin:0">D'après le dernier prix que vous avez payé dans chaque enseigne.</p>
+  </section>
+  {% endif %}
+</main>
+{% with actif='liste' %}{% include "_nav.html" %}{% endwith %}
+<script>
+  // dictee : bouton micro seulement si le navigateur sait reconnaitre la voix (Chrome Android, Safari)
+  const Reco = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (Reco) {
+    const bouton = document.getElementById('micro');
+    bouton.hidden = false;
+    bouton.addEventListener('click', () => {
+      const r = new Reco();
+      r.lang = 'fr-FR';
+      r.onresult = (e) => { document.getElementById('nom').value = e.results[0][0].transcript; };
+      r.start();
+    });
+  }
+</script>
+{% endblock %}
