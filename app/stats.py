@@ -10,6 +10,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
 from .models import Receipt, ReceiptItem, User
+from .unites import format_produit, prix_par_unite
 
 ZERO = Decimal("0")
 
@@ -122,21 +123,38 @@ def tableau_de_bord(db: Session, user: User, periode: str = "an", aujourd_hui: O
     return t
 
 
-def _derniers_prix(tickets, ticket_de: Optional[dict] = None) -> tuple[dict, dict, dict]:
+def _derniers_prix(tickets, ticket_de: Optional[dict] = None, unites: Optional[dict] = None) -> tuple[dict, dict, dict]:
     """produit -> enseigne -> (date, prix unitaire) ; produit -> nom ; produit -> nombre d'achats.
-    Si `ticket_de` est fourni, il recoit (produit, enseigne) -> ticket ou ce dernier prix a ete paye."""
+    Si `ticket_de` est fourni, il recoit (produit, enseigne) -> ticket ou ce dernier prix a ete paye.
+    Si `unites` est fourni : prix paye ramene a la piece, au kilo ou au litre, et un meme produit en formats
+    differents regroupe (« Avocat bio » et « Avocats bio ×2 ») ; le produit est alors une cle (produit, unite),
+    et `unites` recoit cle -> (unite, paquets)."""
     derniers, noms, achats = defaultdict(dict), {}, defaultdict(int)
+    groupes = {}  # (nom sans format, unite) -> premier produit vu, qui represente le groupe
     for r in sorted(tickets, key=lambda r: r.achete_le):
         if not r.store or r.store.enseigne in ("Inconnue", "Marché", "Commerce"):
             continue
         for it in r.items:
-            prix = _prix_unitaire(it)
-            if it.product_id and prix:
-                derniers[it.product_id][r.store.enseigne] = (r.achete_le, prix)
+            if not it.product_id:
+                continue
+            pid, nom = it.product_id, it.product.nom
+            if unites is None:
+                prix = _prix_unitaire(it)
+            else:
+                fmt = format_produit(nom, it.product.categorie)
+                prix, unite = prix_par_unite(it, fmt)
+                # cle : (premier produit vu du groupe, unite) ; un meme produit vendu au kilo et en barquette
+                # sans poids connu fait deux groupes
+                pid = (groupes.setdefault((fmt.cle, unite), pid), unite)
+                nom = noms.get(pid, fmt.nom)
+                deja = unites.get(pid, (unite, False))
+                unites[pid] = (unite, deja[1] or fmt.paquet or it.quantite != 1)
+            if prix:
+                derniers[pid][r.store.enseigne] = (r.achete_le, prix)
                 if ticket_de is not None:
-                    ticket_de[(it.product_id, r.store.enseigne)] = r.id
-                noms[it.product_id] = it.product.nom
-                achats[it.product_id] += 1
+                    ticket_de[(pid, r.store.enseigne)] = r.id
+                noms[pid] = nom
+                achats[pid] += 1
     return derniers, noms, achats
 
 
@@ -150,19 +168,24 @@ def comparaisons(db: Session, user: User, recherche: str = "") -> dict:
         select(Receipt).where(Receipt.user_id == user.id, Receipt.achete_le.is_not(None))
         .options(selectinload(Receipt.items).selectinload(ReceiptItem.product), selectinload(Receipt.store))
     ).all()
-    ticket_de = {}
-    derniers, noms, achats = _derniers_prix(tickets, ticket_de)
-    produits = {p.id: p for p in db.scalars(select(Product).where(Product.id.in_(derniers.keys())))}
+    ticket_de, unites = {}, {}
+    # prix paye ramene a la piece, au kilo ou au litre : un lot de 2 avocats se compare a un avocat seul
+    derniers, noms, achats = _derniers_prix(tickets, ticket_de, unites)
+    produits = {p.id: p for p in db.scalars(select(Product).where(Product.id.in_([k[0] for k in derniers])))}
+    produit = lambda k: produits[k[0]]  # cle : (produit, unite)
 
     def fiche(pid):
         lignes = sorted(({"enseigne": e, "prix": p, "date": d, "ticket": ticket_de.get((pid, e))}
                          for e, (d, p) in derniers[pid].items()), key=lambda l: l["prix"])
-        return {"id": pid, "nom": noms[pid], "achats": achats[pid], "lignes": lignes, "seul": len(lignes) == 1}
+        unite, paquets = unites.get(pid, ("pièce", False))
+        # « / pièce » seulement si des lots ou des quantites ont ete ramenes a l'unite
+        return {"id": pid[0], "nom": noms[pid], "achats": achats[pid], "lignes": lignes, "seul": len(lignes) == 1,
+                "unite": None if unite == "article" or (unite == "pièce" and not paquets) else unite}
 
     if recherche.strip():
         # a pertinence egale : d'abord ce qui se compare (plusieurs enseignes), puis le plus achete
-        ids = classer(recherche, list(derniers), cle=lambda pid: (noms[pid], produits[pid].famille or "",
-                                                                  produits[pid].categorie or ""),
+        ids = classer(recherche, list(derniers), cle=lambda pid: (noms[pid], produit(pid).famille or "",
+                                                                  produit(pid).categorie or ""),
                       ensuite=lambda pid: (len(derniers[pid]) >= 2) * 1000 + achats[pid])
         resultat = [fiche(pid) for pid in ids[:30]]
     else:
@@ -176,8 +199,8 @@ def comparaisons(db: Session, user: User, recherche: str = "") -> dict:
     # suggestions : les familles que la personne achete le plus (« saumon », « œufs »…)
     par_famille = defaultdict(int)
     for pid, n in achats.items():
-        if produits.get(pid) and produits[pid].famille:
-            par_famille[produits[pid].famille] += n
+        if produits.get(pid[0]) and produits[pid[0]].famille:
+            par_famille[produits[pid[0]].famille] += n
     suggestions = [f for f, _ in sorted(par_famille.items(), key=lambda kv: -kv[1])[:8]]
     meilleure = max(gagnantes.items(), key=lambda kv: kv[1]) if gagnantes else None
     return {"produits": resultat, "meilleure": meilleure, "nb_compares": sum(gagnantes.values()),

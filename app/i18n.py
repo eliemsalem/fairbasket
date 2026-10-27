@@ -205,7 +205,9 @@ EN = {
     "Autour de moi": "Near me",
     "Le bon nom du produit (précisez bio, marque, format si besoin)":
         "The right product name (add organic, brand, size if needed)",
-    "Corriger partout": "Fix everywhere", "Bio": "Organic",
+    "Corriger partout": "Fix everywhere", "pièce": "item",
+    "Prix réellement payés sur vos tickets, remises déduites, ramenés à la pièce, au kilo ou au litre : un lot de 2 avocats se compare à un avocat seul.":
+        "Prices actually paid on your receipts, discounts included, per item, per kilo or per litre: a pack of 2 avocados compares with a single one.", "Bio": "Organic",
     "Touchez un prix pour voir le ticket. Pas le même produit ? Touchez son nom sur le ticket pour le corriger.":
         "Tap a price to see the receipt. Not the same product? Tap its name on the receipt to fix it.",
     "Toutes les lignes « {libelle} » de cette enseigne prendront ce nom, et les prochains tickets aussi.":

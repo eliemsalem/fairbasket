@@ -58,7 +58,8 @@ def test_comparaisons(db):
     ticket(db, u, 1, "Biocoop", "2026-10-03", [_article("O", "Œufs bio ×6", 2.82), _article("K", "Kéfir 1 L", 2.65)])
     ticket(db, u, 2, "Carrefour", "2026-10-15", [_article("X", "Œufs bio ×6", 2.49)])
     c = comparaisons(db, u)
-    assert [p["nom"] for p in c["produits"]] == ["Œufs bio ×6"]  # le kéfir n'est que chez Biocoop
+    assert [p["nom"] for p in c["produits"]] == ["Œufs bio"]  # le kéfir n'est que chez Biocoop
+    assert str(c["produits"][0]["lignes"][0]["prix"]) == "0.42" and c["produits"][0]["unite"] == "pièce"
     assert c["produits"][0]["lignes"][0]["enseigne"] == "Carrefour" and c["meilleure"] == ("Carrefour", 1)
     assert comparaisons(db, u, "oeufs")["produits"] and not comparaisons(db, u, "saumon")["produits"]
 
@@ -119,3 +120,21 @@ def test_retour_depuis_le_ticket(client, links):
     assert 'href="/comparer?onglet=moi&amp;q=oeuf"' in page
     assert 'href="/accueil"' in client.get(loc + "?retour=https://exemple.com").text  # jamais une autre adresse
     mp.undo()
+
+
+def test_comparer_a_l_unite(db):
+    """2 avocats a 4 € contre 1 avocat a 1,50 € : 2,00 € la piece contre 1,50 €. Au kilo pour les formats."""
+    from app.stats import comparaisons
+    from app.unites import format_produit
+    u = nouvel_utilisateur(db, "a@x.fr")
+    av = lambda lib, nom, prix: {**_article(lib, nom, prix), "categorie": "Fruits et légumes"}
+    ticket(db, u, 1, "Monoprix", "2026-10-03", [av("AV2", "Avocats bio ×2", 4.0), av("TC", "Tomates cerises 250 g", 3.0)])
+    ticket(db, u, 2, "Carrefour", "2026-10-04", [av("AV", "Avocat bio", 1.5), av("TC2", "Tomates cerises 500 g", 4.0)])
+    par_nom = {p["nom"]: p for p in comparaisons(db, u)["produits"]}
+    avocat = par_nom["Avocats bio"]
+    assert [(l["enseigne"], str(l["prix"])) for l in avocat["lignes"]] == [("Carrefour", "1.50"), ("Monoprix", "2.00")]
+    tomates = par_nom["Tomates cerises"]
+    assert tomates["unite"] == "kg" and [str(l["prix"]) for l in tomates["lignes"]] == ["8.00", "12.00"]
+    # format inconnu hors fruits et legumes : pas melange avec les boites
+    assert format_produit("Œufs gros calibre", "Produits laitiers et œufs").unite == "article"
+    assert format_produit("Lait bio 25 cl").quantite == format_produit("Lait bio 1 L").quantite / 4

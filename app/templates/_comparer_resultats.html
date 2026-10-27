@@ -24,7 +24,7 @@
             <span class="dot" style="{{ 'width:10px;height:10px;flex:none;background:' ~ (l.enseigne|couleur) }}"></span>
             <span class="grow">{{ l.enseigne }} <span class="small">· {{ l.date.strftime('%d/%m/%y') }}</span></span>
             {% if loop.first and not p.seul %}<span class="badge">{{ _("le moins cher") }}</span>{% endif %}
-            <span class="mono" style="font-weight:{{ 700 if loop.first else 500 }}">{{ l.prix|euros }}</span>
+            <span class="mono" style="font-weight:{{ 700 if loop.first else 500 }}">{{ l.prix|euros }}{% if p.unite %}<span class="small"> / {{ _(p.unite) }}</span>{% endif %}</span>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex:none;opacity:.5"><path d="M9 5l7 7-7 7"/></svg>
           </a>
         {% endfor %}
@@ -33,7 +33,7 @@
     {% else %}
       <div class="card"><p class="lede" style="margin:0">{% if q %}{{ _('Aucun produit ne correspond à « {q} ».', q=q) }}{% else %}{{ _('Les comparaisons apparaissent quand vous avez acheté le même produit dans au moins deux enseignes.') }}{% endif %}</p></div>
     {% endfor %}
-    <p class="small">{{ _("Prix réellement payés sur vos tickets, à l'unité. Les produits vendus au poids ne sont pas encore comparés.") }}</p>
+    <p class="small">{{ _("Prix réellement payés sur vos tickets, remises déduites, ramenés à la pièce, au kilo ou au litre : un lot de 2 avocats se compare à un avocat seul.") }}</p>
   {% else %}
     {% for p in commu %}
       <div class="card" style="display:flex;flex-direction:column;gap:8px">
