@@ -340,6 +340,17 @@ def renommer_produit(db: Session, item: ReceiptItem, nom: str) -> Optional[Produ
     return produit
 
 
+def changer_rayon(db: Session, item: ReceiptItem, categorie: str) -> bool:
+    """Le rayon d'un produit etait mal devine : corrige pour toutes ses lignes (et les prochains tickets)."""
+    from .lecture import CATEGORIES
+
+    if categorie not in CATEGORIES or item.product is None:
+        return False
+    item.product.categorie = categorie
+    db.commit()
+    return True
+
+
 def corriger_bio(db: Session) -> int:
     """Tickets deja enregistres : rattache les achats faits dans une enseigne bio au produit bio correspondant."""
     deplaces = 0

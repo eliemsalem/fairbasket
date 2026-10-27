@@ -35,7 +35,13 @@
             <input type="hidden" name="retour" value="{{ retour }}">
             <button class="btn ghost" style="height:40px" type="submit">{{ _("Corriger partout") }}</button>
             <span class="small">{{ _("Toutes les lignes « {libelle} » de cette enseigne prendront ce nom, et les prochains tickets aussi.", libelle=it.libelle) }}</span>
-          </form></details>{% else %}{{ it.product.nom if it.product else it.libelle }}{% endif %}<span class="small">{{ it.libelle }}{% if it.prix_kg %} · {{ it.prix_kg|euros }}/kg{% endif %}{% if it.product and it.product.categorie %} · {{ _(it.product.categorie) }}{% endif %}</span></span>{% if r.store %}<form method="post" action="/tickets/{{ r.id }}/bio/{{ it.id }}" style="margin:0"><input type="hidden" name="retour" value="{{ retour }}"><button class="pastille-bio" type="submit" aria-pressed="{{ 'true' if bio else 'false' }}" aria-label="{{ _('Bio') }} : {{ it.product.nom if it.product else it.libelle }}">{{ _("Bio") }}</button></form>{% endif %}<span class="mono">{{ it.montant|euros }}</span></div>{% endfor %}
+          </form>{% if it.product %}
+          <form method="post" action="/tickets/{{ r.id }}/rayon/{{ it.id }}" style="gap:8px;margin:0 0 8px">
+            <label class="small" for="c{{ it.id }}">{{ _("Rayon") }}</label>
+            <select id="c{{ it.id }}" name="categorie" onchange="this.form.submit()">{% for c in rayons %}<option value="{{ c }}"{% if c == it.product.categorie %} selected{% endif %}>{{ _(c) }}</option>{% endfor %}</select>
+            <input type="hidden" name="retour" value="{{ retour }}">
+            <noscript><button class="btn ghost" style="height:40px" type="submit">{{ _("Changer le rayon") }}</button></noscript>
+          </form>{% endif %}</details>{% else %}{{ it.product.nom if it.product else it.libelle }}{% endif %}<span class="small">{{ it.libelle }}{% if it.prix_kg %} · {{ it.prix_kg|euros }}/kg{% endif %}{% if it.product and it.product.categorie %} · {{ _(it.product.categorie) }}{% endif %}</span></span>{% if r.store %}<form method="post" action="/tickets/{{ r.id }}/bio/{{ it.id }}" style="margin:0"><input type="hidden" name="retour" value="{{ retour }}"><button class="pastille-bio" type="submit" aria-pressed="{{ 'true' if bio else 'false' }}" aria-label="{{ _('Bio') }} : {{ it.product.nom if it.product else it.libelle }}">{{ _("Bio") }}</button></form>{% endif %}<span class="mono">{{ it.montant|euros }}</span></div>{% endfor %}
       {% if r.remises_globales %}<div class="row"><span class="grow">{{ _("Remises") }}</span><span class="mono">−{{ r.remises_globales|euros }}</span></div>{% endif %}
     </div>
   {% else %}

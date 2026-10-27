@@ -138,3 +138,26 @@ def test_comparer_a_l_unite(db):
     # format inconnu hors fruits et legumes : pas melange avec les boites
     assert format_produit("Œufs gros calibre", "Produits laitiers et œufs").unite == "article"
     assert format_produit("Lait bio 25 cl").quantite == format_produit("Lait bio 1 L").quantite / 4
+
+
+def test_tous_les_rayons_et_leur_evolution(db):
+    u = nouvel_utilisateur(db, "a@x.fr")
+    ticket(db, u, 1, "Carrefour", "2026-10-03", [_article("A", "Œufs bio ×6", 12.0)])
+    ticket(db, u, 2, "Carrefour", "2026-09-03", [_article("B", "Œufs bio ×6", 10.0)])
+    c = tableau_de_bord(db, u, "mois", AUJ).categories
+    assert c[0]["nom"] == "Produits laitiers et œufs" and c[0]["evolution"] == 20 and c[0]["part"] == 100
+
+
+def test_un_rayon(db):
+    from app.stats import rayon
+    u = nouvel_utilisateur(db, "a@x.fr")
+    ticket(db, u, 1, "Carrefour", "2026-09-03", [_article("X6 OEUFS CRF BIO", "Œufs bio ×6", 2.49)])
+    ticket(db, u, 2, "Biocoop", "2026-10-15", [_article("OEUFS BIOCOOP 6", "Œufs bio ×6", 2.82),
+                                               _article("KEFIR", "Kéfir 1 L", 3.0)])
+    ry = rayon(db, u, "Produits laitiers et œufs", AUJ)
+    assert float(ry["ce_mois"]) == 5.82
+    assert float(ry["precedent"]) == 2.49 and float(ry["total_12"]) == 8.31
+    assert ry["produits"][0]["nom"] == "Œufs bio ×6" and ry["produits"][0]["achats"] == 2
+    a = ry["moins_cher"]
+    assert len(a) == 1 and a[0]["enseigne"] == "Carrefour" and a[0]["habituelle"] == "Biocoop" and a[0]["ecart"] == 11 and a[0]["unite"] == "pièce"
+    assert rayon(db, u, "Fromages", AUJ)["produits"] == []

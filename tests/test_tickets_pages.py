@@ -175,3 +175,24 @@ def test_bio_en_un_geste(client, links):
     client.post(f"/tickets/{rid}/bio/{item}")  # et retour en arriere
     with SessionLocal() as db:
         assert db.get(ReceiptItem, item).product.nom == "Pavé de saumon"
+
+
+def test_changer_le_rayon(client, links):
+    from app.db import SessionLocal
+    from app.models import ReceiptItem, User
+    from tests.test_auth import connecter_admin
+    from tests.test_stats import ticket
+    from tests.test_tickets import _article
+    connecter_admin(client, links)
+    with SessionLocal() as db:
+        u = db.query(User).first()
+        r = ticket(db, u, 1, "Carrefour", "2026-10-03", [_article("PAVE SAUMON", "Pavé de saumon", 9.99)])
+        rid, item = r.id, r.items[0].id
+    client.post(f"/tickets/{rid}/rayon/{item}", data={"categorie": "Viandes et poissons"})
+    client.post(f"/tickets/{rid}/rayon/{item}", data={"categorie": "n'importe quoi"})  # ignore
+    with SessionLocal() as db:
+        assert db.get(ReceiptItem, item).product.categorie == "Viandes et poissons"
+    page = client.get("/rayon?nom=Viandes%20et%20poissons").text
+    assert "Pavé de saumon" in page and "9,99" in page
+    assert client.get("/rayon?nom=inconnu", follow_redirects=False).status_code == 303
+    assert "/rayon?nom=Viandes%20et%20poissons" in client.get("/accueil").text

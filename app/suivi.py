@@ -21,7 +21,7 @@ GARDE_JOURS = 180
 PAGES = {"/": "Inscription", "/connexion": "Connexion", "/auth/{token}": "Lien de connexion",
          "/presentation": "Présentation", "/accueil": "Accueil", "/comparer": "Comparer", "/liste": "Liste",
          "/liste/comparer": "Où faire mes courses", "/profil": "Profil", "/tickets/ajouter": "Ajouter un ticket",
-         "/tickets/{receipt_id}": "Voir un ticket", "/tickets": "Envoi d'un ticket", "/avis": "Donner son avis",
+         "/tickets/{receipt_id}": "Voir un ticket", "/tickets": "Envoi d'un ticket", "/avis": "Donner son avis", "/rayon": "Un rayon",
          "/admin": "Administration"}
 # pages qui ne disent rien de l'usage (fichiers, sondes, administration)
 IGNOREES = ("/static", "/sw.js", "/health", "/admin", "/favicon")

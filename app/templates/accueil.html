@@ -50,8 +50,9 @@
   {% if t.categories %}
   <section style="display:flex;flex-direction:column;gap:8px">
     <h2>{{ _("Par rayon") }}</h2>
+    <span class="small">{% if t.periode == 'mois' %}{{ _("Touchez un rayon pour voir ce que vous y achetez. Évolution par rapport à {mois}.", mois=mois(t.debut_prec, avec_annee=False)) }}{% else %}{{ _("Touchez un rayon pour voir ce que vous y achetez. Évolution par rapport aux 12 mois précédents.") }}{% endif %}</span>
     {% for c in t.categories %}
-      <div class="hbar"><span class="lbl">{{ _(c.nom) }}</span><span class="track"><span style="width:{{ c.part }}%"></span></span><span class="mono val">{{ c.total|euros }}</span></div>
+      <a class="hbar lien" href="/rayon?nom={{ c.nom|urlencode }}"><span class="lbl">{{ _(c.nom) }}</span><span class="track"><span style="width:{{ c.part }}%"></span></span><span class="mono val">{{ c.total|euros }}{% if c.evolution is not none %} <span class="small">{{ '+' if c.evolution > 0 }}{{ c.evolution }} %</span>{% endif %} ›</span></a>
     {% endfor %}
   </section>
   {% endif %}

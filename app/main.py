@@ -23,6 +23,7 @@ from sqlalchemy.orm import Session, selectinload
 
 from . import adresses, auth, config, i18n, liste, openprices, panier, stats, suivi, tickets
 from .db import SessionLocal, get_db, init_db
+from .lecture import CATEGORIES
 from .models import Avis, OpenPrice, Product, Receipt, ReceiptItem, ShoppingItem, Store, User, now
 
 APP_DIR = config.ROOT / "app"
@@ -104,6 +105,7 @@ def _euros(v) -> str:
 
 templates.env.filters["euros"] = _euros
 templates.env.globals["est_bio"] = tickets.nom_bio
+templates.env.globals["rayons"] = CATEGORIES
 templates.env.globals["pres_km"] = f"{config.OPEN_PRICES_PRES_KM:g}"
 templates.env.filters["couleur"] = lambda enseigne: COULEURS.get(enseigne or "", "#9A9A9A")
 
@@ -305,6 +307,13 @@ def accueil(request: Request, periode: str = "an", user: User = Depends(require_
     a_corriger = db.scalars(select(Receipt).where(Receipt.user_id == user.id, Receipt.statut == "ecart")).all()
     return page(request, "accueil.html", user=user, admin=auth.is_admin(user), recents=recents,
                 a_corriger=a_corriger, t=stats.tableau_de_bord(db, user, periode))
+
+
+@app.get("/rayon", response_class=HTMLResponse)
+def rayon(request: Request, nom: str = "", user: User = Depends(require_user), db: Session = Depends(get_db)):
+    if nom not in CATEGORIES:
+        return RedirectResponse("/accueil", status_code=303)
+    return page(request, "rayon.html", user=user, ry=stats.rayon(db, user, nom))
 
 
 POSITION_COOKIE = "position"
@@ -586,6 +595,19 @@ def ticket_bio(receipt_id: int, item_id: int, retour: str = Form(""), user: User
     suivi.noter(user.id, "produit_renomme", "/tickets/{receipt_id}", f"{item.libelle} → {nom[:80]}")
     suite = f"?retour={quote(retour)}" if retour.startswith("/") and not retour.startswith("//") else ""
     return RedirectResponse(f"/tickets/{r.id}{suite}#p{produit.id if produit else ''}", status_code=303)
+
+
+@app.post("/tickets/{receipt_id}/rayon/{item_id}")
+def ticket_rayon(receipt_id: int, item_id: int, categorie: str = Form(""), retour: str = Form(""),
+                 user: User = Depends(require_user), db: Session = Depends(get_db)):
+    r = _ticket_de(db, user, receipt_id)
+    item = next((it for it in r.items if it.id == item_id), None)
+    if item is None:
+        raise HTTPException(status_code=404)
+    if tickets.changer_rayon(db, item, categorie):
+        suivi.noter(user.id, "rayon_change", "/tickets/{receipt_id}", f"{item.libelle} → {categorie}")
+    suite = f"?retour={quote(retour)}" if retour.startswith("/") and not retour.startswith("//") else ""
+    return RedirectResponse(f"/tickets/{r.id}{suite}#p{item.product_id or ''}", status_code=303)
 
 
 @app.post("/tickets/{receipt_id}/adresse")

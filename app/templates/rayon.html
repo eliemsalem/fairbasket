@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}FairBasket — {{ _(ry.nom) }}{% endblock %}
+{% block body %}
+<main class="screen with-nav" style="gap:22px">
+  <a class="small" href="/accueil">‹ {{ _("Accueil") }}</a>
+  <h1 style="font-size:24px">{{ _(ry.nom) }}</h1>
+
+  <div style="display:flex;flex-direction:column;gap:4px">
+    <span class="small"><strong>{{ mois(ry.mois_courant)|capitalize }}</strong></span>
+    <span class="mono" style="font-size:44px;line-height:1;font-weight:700;letter-spacing:-.03em">{{ ry.ce_mois|euros }}</span>
+    <span class="small">{{ _("{montant} en {mois}", montant=ry.precedent|euros, mois=mois(ry.mois_precedent, avec_annee=False)) }} · {{ _("{montant} sur 12 mois", montant=ry.total_12|euros) }}</span>
+  </div>
+
+  <section style="display:flex;flex-direction:column;gap:10px">
+    <h2>{{ _("Dépenses par mois") }}</h2>
+    <div class="bars" role="img" aria-label="{{ _('Dépenses des 12 derniers mois') }}">
+      {% for m in ry.mois %}<div title="{{ mois(m.date) }} : {{ m.valeur|euros }}"><div style="height:{{ m.hauteur }}px" class="{{ 'on' if m.courant }}"></div></div>{% endfor %}
+    </div>
+    <div class="bars-labels" aria-hidden="true">{% for m in ry.mois %}<span>{{ mois(m.date, court=True) }}</span>{% endfor %}</div>
+  </section>
+
+  {% if ry.moins_cher %}
+  <section style="display:flex;flex-direction:column;gap:10px">
+    <h2>{{ _("Moins cher ailleurs") }}</h2>
+    {% for a in ry.moins_cher %}
+      <div class="card">{{ _("{produit} : {prix} chez {enseigne}, contre {prix_habituel} chez {habituelle}.", produit=a.produit, prix=(a.prix|euros) ~ (' / ' ~ _(a.unite) if a.unite else ''), enseigne=a.enseigne, prix_habituel=(a.prix_habituel|euros) ~ (' / ' ~ _(a.unite) if a.unite else ''), habituelle=a.habituelle) }} <strong>−{{ a.ecart }} %</strong></div>
+    {% endfor %}
+    <span class="small">{{ _("D'après le dernier prix que vous avez payé dans chaque enseigne.") }}</span>
+  </section>
+  {% endif %}
+
+  <section style="display:flex;flex-direction:column;gap:8px">
+    <h2>{{ _("Ce que vous y achetez") }}</h2>
+    {% if ry.produits %}
+    <div class="rows">{% for p in ry.produits %}<a class="row" href="/tickets/{{ p.ticket }}?retour={{ ('/rayon?nom=' ~ (ry.nom|urlencode))|urlencode }}"><span class="grow">{{ p.nom }}<br><span class="small">{{ _("{n} achat(s)", n=p.achats) }}</span></span><span class="mono">{{ p.total|euros }}</span></a>{% endfor %}</div>
+    <span class="small">{{ _("Un produit n'est pas dans le bon rayon ? Touchez-le, puis son nom sur le ticket pour changer son rayon.") }}</span>
+    {% else %}
+    <p class="small">{{ _("Rien dans ce rayon sur les 12 derniers mois.") }}</p>
+    {% endif %}
+  </section>
+</main>
+{% with actif='accueil' %}{% include "_nav.html" %}{% endwith %}
+{% endblock %}

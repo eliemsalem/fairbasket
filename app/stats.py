@@ -45,6 +45,10 @@ def _prix_unitaire(it: ReceiptItem) -> Optional[Decimal]:
     return (it.montant / it.quantite).quantize(Decimal("0.01")) if it.quantite else None
 
 
+def _rayon(it: ReceiptItem) -> str:
+    return (it.product.categorie if it.product else None) or "Autre"
+
+
 def tableau_de_bord(db: Session, user: User, periode: str = "an", aujourd_hui: Optional[date] = None) -> Tableau:
     aujourd_hui = aujourd_hui or date.today()
     mois_courant = aujourd_hui.replace(day=1)
@@ -86,7 +90,7 @@ def tableau_de_bord(db: Session, user: User, periode: str = "an", aujourd_hui: O
     for r in dans:
         par_enseigne[r.store.enseigne if r.store else "Autre"] += r.total or ZERO
         for it in r.items:
-            par_categorie[(it.product.categorie if it.product else None) or "Autre"] += it.montant
+            par_categorie[_rayon(it)] += it.montant
             if it.product:
                 p = par_produit.setdefault(it.product_id, {"nom": it.product.nom, "total": ZERO, "achats": 0})
                 p["total"] += it.montant
@@ -94,9 +98,15 @@ def tableau_de_bord(db: Session, user: User, periode: str = "an", aujourd_hui: O
     somme = sum(par_enseigne.values(), ZERO) or Decimal("1")
     t.enseignes = [{"nom": k, "total": v, "part": round(v / somme * 100)}
                    for k, v in sorted(par_enseigne.items(), key=lambda kv: -kv[1])]
-    somme_cat = sum(par_categorie.values(), ZERO) or Decimal("1")
-    t.categories = [{"nom": k, "total": v, "part": round(v / somme_cat * 100)}
-                    for k, v in sorted(par_categorie.items(), key=lambda kv: -kv[1])[:6]]
+    cat_avant = defaultdict(lambda: ZERO)
+    for r in avant:
+        for it in r.items:
+            cat_avant[_rayon(it)] += it.montant
+    # tous les rayons, la barre a l'echelle du plus gros ; evolution par rapport a la periode precedente
+    maxi_cat = max(par_categorie.values(), default=ZERO) or Decimal("1")
+    t.categories = [{"nom": k, "total": v, "part": round(v / maxi_cat * 100),
+                     "evolution": round((v - cat_avant[k]) / cat_avant[k] * 100) if cat_avant[k] > 0 else None}
+                    for k, v in sorted(par_categorie.items(), key=lambda kv: -kv[1])]
     t.produits = sorted(par_produit.values(), key=lambda p: -p["total"])[:5]
 
     # alerte « moins cher ailleurs » : dernier prix paye pour le meme produit dans chaque enseigne
@@ -242,3 +252,55 @@ def communaute(db: Session, user: User, recherche: str = "", jours: int = 90) ->
         if len(lignes) >= 2:
             resultat.append({"nom": noms[pid], "lignes": sorted(lignes, key=lambda l: l["prix"])})
     return sorted(resultat, key=lambda p: -sum(l["releves"] for l in p["lignes"]))[:30]
+
+
+def rayon(db: Session, user: User, categorie: str, aujourd_hui: Optional[date] = None) -> dict:
+    """Un rayon (« Fromages ») : ses depenses mois par mois, ce qu'on y achete le plus, et ou c'est moins cher."""
+    aujourd_hui = aujourd_hui or date.today()
+    mois_courant = aujourd_hui.replace(day=1)
+    debut = _ajoute_mois(mois_courant, -11)
+    tickets = db.scalars(
+        select(Receipt).where(Receipt.user_id == user.id, Receipt.achete_le.is_not(None))
+        .options(selectinload(Receipt.items).selectinload(ReceiptItem.product), selectinload(Receipt.store))
+    ).all()
+    par_mois, par_produit = defaultdict(lambda: ZERO), {}
+    for r in tickets:
+        jour = r.achete_le.date()
+        for it in r.items:
+            if _rayon(it) != categorie:
+                continue
+            par_mois[jour.replace(day=1)] += it.montant
+            if jour >= debut:
+                cle = it.product_id or it.libelle
+                p = par_produit.setdefault(cle, {"nom": it.product.nom if it.product else it.libelle,
+                                                 "total": ZERO, "achats": 0, "ticket": r.id})
+                p["total"] += it.montant
+                p["achats"] += 1
+                p["ticket"] = r.id  # le plus recent, pour corriger le rayon depuis le ticket
+    mois12 = [_ajoute_mois(mois_courant, -i) for i in range(11, -1, -1)]
+    maxi = max([par_mois[m] for m in mois12] + [Decimal("1")])
+    mois = [{"date": m, "valeur": par_mois[m], "hauteur": max(2, int(par_mois[m] / maxi * 120)),
+             "courant": m == mois_courant} for m in mois12]
+    precedent = par_mois[_ajoute_mois(mois_courant, -1)]
+
+    # moins cher ailleurs : dernier prix paye a l'unite (piece, kilo, litre) dans chaque enseigne
+    unites = {}
+    derniers, noms, _ = _derniers_prix(tickets, unites=unites)
+    du_rayon = {pid: p for pid, p in par_produit.items() if isinstance(pid, int)}
+    moins_cher = []
+    for cle, par_ens in derniers.items():
+        if cle[0] not in du_rayon or len(par_ens) < 2:
+            continue
+        habituelle = max(par_ens.items(), key=lambda kv: kv[1][0])[0]
+        ens, (_, prix) = min(par_ens.items(), key=lambda kv: kv[1][1])
+        if ens != habituelle and prix < par_ens[habituelle][1]:
+            unite, paquets = unites.get(cle, ("pièce", False))
+            moins_cher.append({"produit": noms[cle], "enseigne": ens, "prix": prix, "habituelle": habituelle,
+                               "prix_habituel": par_ens[habituelle][1],
+                               "unite": None if unite == "article" or (unite == "pièce" and not paquets) else unite,
+                               "ecart": round((par_ens[habituelle][1] - prix) / par_ens[habituelle][1] * 100)})
+    return {"nom": categorie, "mois": mois, "ce_mois": par_mois[mois_courant], "precedent": precedent,
+            "mois_courant": mois_courant, "mois_precedent": _ajoute_mois(mois_courant, -1),
+            "total_12": sum((par_mois[m] for m in mois12), ZERO),
+            "produits": sorted(par_produit.values(), key=lambda p: -p["total"])[:20],
+            "moins_cher": sorted(moins_cher, key=lambda a: -a["ecart"])[:10]}

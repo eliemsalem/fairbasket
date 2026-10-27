@@ -281,6 +281,17 @@ EN = {
         "Your receipts, their files and your account will be permanently deleted. Prices already shared anonymously remain, with no link to you.",
     "Tapez SUPPRIMER pour confirmer": "Type SUPPRIMER to confirm", "Tout supprimer": "Delete everything",
     "Se déconnecter": "Log out", "Mentions légales": "Legal notice", "Confidentialité": "Privacy", "Conditions": "Terms",
+    # rayon
+    "Touchez un rayon pour voir ce que vous y achetez. Évolution par rapport à {mois}.":
+        "Tap an aisle to see what you buy there. Change compared with {mois}.",
+    "Touchez un rayon pour voir ce que vous y achetez. Évolution par rapport aux 12 mois précédents.":
+        "Tap an aisle to see what you buy there. Change compared with the previous 12 months.",
+    "{montant} en {mois}": "{montant} in {mois}", "{montant} sur 12 mois": "{montant} over 12 months",
+    "Ce que vous y achetez": "What you buy there",
+    "Un produit n'est pas dans le bon rayon ? Touchez-le, puis son nom sur le ticket pour changer son rayon.":
+        "A product in the wrong aisle? Tap it, then its name on the receipt to change its aisle.",
+    "Rien dans ce rayon sur les 12 derniers mois.": "Nothing in this aisle over the last 12 months.",
+    "Rayon": "Aisle", "Changer le rayon": "Change aisle",
     # rayons et enseignes particulieres (valeurs stockees en francais)
     "Fruits et légumes": "Fruit and vegetables", "Viandes et poissons": "Meat and fish",
     "Produits laitiers et œufs": "Dairy and eggs", "Fromages": "Cheese", "Boulangerie": "Bakery",
