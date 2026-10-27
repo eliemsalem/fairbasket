@@ -13,7 +13,7 @@
   {% set s = r.store %}
   {% if r.adresse_ok %}
     <div class="check"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex:none"><path d="M5 12l5 5 9-10"/></svg><span>{{ _("Adresse vérifiée") }}{% if s and (s.adresse or s.ville) %} : {{ [s.adresse, ((s.code_postal or '') ~ ' ' ~ (s.ville or ''))|trim]|select|join(', ') }}{% endif %}</span></div>
-  {% elif s %}
+  {% elif s and s.enseigne != 'Inconnue' %}
     <form method="post" action="/tickets/{{ r.id }}/adresse" class="card" style="border:2px solid var(--fg);gap:10px">
       <strong>{{ _("Adresse du magasin à confirmer") }}</strong>
       <span class="small">{% if s.adresse or s.ville %}{{ _("Elle n'est pas imprimée sur ce ticket. Est-ce bien ce magasin ?") }}{% else %}{{ _("Elle n'est pas imprimée sur ce ticket. Indiquez-la pour comparer les prix du bon magasin.") }}{% endif %}</span>

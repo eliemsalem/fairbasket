@@ -236,7 +236,8 @@ def accueil(request: Request, periode: str = "an", user: User = Depends(require_
     recents = db.scalars(select(Receipt).where(Receipt.user_id == user.id)
                          .order_by(Receipt.achete_le.desc(), Receipt.id.desc()).limit(10)).all()
     a_corriger = db.scalars(select(Receipt).where(Receipt.user_id == user.id, Receipt.statut == "ecart")).all()
-    sans_adresse = db.scalars(select(Receipt).where(Receipt.user_id == user.id, Receipt.adresse_ok.is_(False))
+    sans_adresse = db.scalars(select(Receipt).join(Store).where(Receipt.user_id == user.id, Receipt.adresse_ok.is_(False),
+                                                                Store.enseigne != "Inconnue")
                               .order_by(Receipt.achete_le.desc())).all()
     return page(request, "accueil.html", user=user, admin=auth.is_admin(user), recents=recents,
                 a_corriger=a_corriger, sans_adresse=sans_adresse, t=stats.tableau_de_bord(db, user, periode))
@@ -492,6 +493,13 @@ def admin_open_prices(_: User = Depends(require_admin), db: Session = Depends(ge
 def admin_bio(_: User = Depends(require_admin), db: Session = Depends(get_db)):
     n = tickets.corriger_bio(db)
     log.info("Achats en magasin bio rattachés au produit bio : %s", n)
+    return RedirectResponse("/admin", status_code=303)
+
+
+@app.post("/admin/magasins")
+def admin_magasins(_: User = Depends(require_admin), db: Session = Depends(get_db)):
+    n = tickets.fusionner_magasins(db)
+    log.info("Magasins en double fusionnés : %s", n)
     return RedirectResponse("/admin", status_code=303)
 
 

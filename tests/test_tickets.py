@@ -273,3 +273,28 @@ def test_adresse_a_confirmer(db):
     assert r.adresse_ok and r.store.adresse == "3 rue du Test" and r.store.ville == "Paris"
     sans2 = {**sans, "heure": "19:00"}
     assert enregistrer_ticket(db, u, b"3", "t.pdf", "application/pdf", lire=fausse_lecture(sans2)).receipt.adresse_ok
+
+
+def test_magasins_en_double(db):
+    from app.models import Store
+    from app.tickets import cle_magasin, fusionner_magasins
+    assert cle_magasin("Carrefour", "CARREFOUR MARKET PARIS JEAN JAURÈS") == cle_magasin("Carrefour", "MARKET PARIS JEAN JAURES")
+    assert cle_magasin("Carrefour", "CITY LYON PART-DIEU") == cle_magasin("Carrefour", "City Lyon Part Dieu")
+    assert cle_magasin("Carrefour", "CITY PARIS CRIMÉE 96") != cle_magasin("Carrefour", "CITY PARIS FLANDRE 110")
+    u = nouvel_utilisateur(db, "a@x.fr")
+    d = {**ALDI, "enseigne": "Carrefour", "magasin": "MARKET PARIS JEAN JAURES", "adresse": None, "code_postal": None}
+    r1 = enregistrer_ticket(db, u, b"1", "t.pdf", "application/pdf", lire=fausse_lecture(d)).receipt
+    d2 = {**d, "magasin": "Carrefour Market Paris Jean Jaurès", "heure": "19:00"}
+    r2 = enregistrer_ticket(db, u, b"2", "t.pdf", "application/pdf", lire=fausse_lecture(d2)).receipt
+    assert r1.store_id == r2.store_id  # reconnu a l'enregistrement
+    # doublons deja en base (enregistres avant) : fusionnes, l'adresse et la confirmation sont gardees
+    ancien = Store(enseigne="Carrefour City", nom="CARREFOUR MARKET PARIS JEAN JAURÈS", adresse="1 av. Jean Jaurès")
+    db.add(ancien)
+    db.flush()
+    r2.store_id, r2.adresse_ok = ancien.id, True
+    db.commit()
+    assert fusionner_magasins(db) == 1
+    db.refresh(r1)
+    db.refresh(r2)
+    assert r1.store_id == r2.store_id and r1.store.adresse == "1 av. Jean Jaurès" and r1.store.enseigne == "Carrefour"
+    assert r1.adresse_ok

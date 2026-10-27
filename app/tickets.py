@@ -1,13 +1,15 @@
 """Enregistrement d'un ticket : doublons, quota, lecture par l'IA, controle du total, prix partages."""
 
 import hashlib
+import re
+from collections import defaultdict
 import unicodedata
 from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal
 from typing import Callable, Optional, Sequence
 
-from sqlalchemy import func, select
+from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session
 
 from . import config
@@ -57,12 +59,22 @@ def enseigne_canonique(enseigne: str) -> str:
     return enseigne
 
 
+def cle_magasin(enseigne: str, nom: str) -> str:
+    """« CARREFOUR MARKET PARIS JEAN JAURÈS » et « MARKET PARIS JEAN JAURES » chez Carrefour -> la meme cle."""
+    mots_enseigne = set(re.sub(r"[^\w&]+", " ", cle_produit(enseigne)).split())
+    mots = [m for m in re.sub(r"[^\w&]+", " ", cle_produit(nom)).split() if m not in mots_enseigne]
+    return " ".join(mots) or cle_produit(enseigne)
+
+
 def _magasin(db: Session, d: dict) -> Optional[Store]:
     enseigne = enseigne_canonique(d.get("enseigne") or "")
     nom = (d.get("magasin") or enseigne).strip().upper()[:120]
     if not enseigne:
         return None
-    store = db.scalar(select(Store).where(Store.enseigne == enseigne, Store.nom == nom))
+    # meme magasin ecrit autrement (accents, enseigne en tete) : on reprend celui qu'on connait
+    cle = cle_magasin(enseigne, nom)
+    store = next((s for s in db.scalars(select(Store).where(Store.enseigne == enseigne).order_by(Store.id))
+                  if cle_magasin(enseigne, s.nom) == cle), None)
     if store is None:
         store = Store(enseigne=enseigne, nom=nom)
         db.add(store)
@@ -311,3 +323,35 @@ def corriger_bio(db: Session) -> int:
         deplaces += 1
     db.commit()
     return deplaces
+
+
+def fusionner_magasins(db: Session) -> int:
+    """Magasins deja enregistres en double (« MARKET PARIS JEAN JAURES » et « CARREFOUR MARKET PARIS JEAN JAURÈS ») :
+    un seul magasin garde les tickets, les prix partages et l'adresse. Renvoie le nombre de doublons retires."""
+    groupes = defaultdict(list)
+    for store in db.scalars(select(Store).order_by(Store.id)):
+        enseigne = enseigne_canonique(store.enseigne)
+        groupes[(enseigne, cle_magasin(enseigne, store.nom))].append(store)
+    retires = 0
+    for (enseigne, _), stores in groupes.items():
+        garde = max(stores, key=lambda st: (bool(st.adresse or st.code_postal), -st.id))  # celui qui a l'adresse
+        for st in stores:
+            if st is garde:
+                continue
+            for champ in ("adresse", "code_postal", "ville"):
+                if not getattr(garde, champ) and getattr(st, champ):
+                    setattr(garde, champ, getattr(st, champ))
+            db.execute(update(Receipt).where(Receipt.store_id == st.id).values(store_id=garde.id))
+            db.execute(update(SharedPrice).where(SharedPrice.store_id == st.id).values(store_id=garde.id))
+            db.delete(st)
+            retires += 1
+        db.flush()
+        garde.enseigne = enseigne
+    db.flush()
+    # une adresse confirmee pour un ticket vaut pour tous les tickets de ce magasin
+    for store_id, user_id in db.execute(select(Receipt.store_id, Receipt.user_id)
+                                        .where(Receipt.adresse_ok.is_(True)).distinct()).all():
+        db.execute(update(Receipt).where(Receipt.store_id == store_id, Receipt.user_id == user_id)
+                   .values(adresse_ok=True))
+    db.commit()
+    return retires
