@@ -1,5 +1,25 @@
 {% extends "base.html" %}
-{% block title %}FairBasket — {{ _("Inscription") }}{% endblock %}
+{% block title %}FairBasket — {{ _("Inscription") }}<script>
+  // les trois cases obligatoires : un message clair et la case montree, au lieu d'une bulle du navigateur
+  (() => {
+    const form = document.querySelector('form[action="/inscription"]');
+    const message = document.getElementById('cases-manquantes');
+    const cases = [...form.querySelectorAll('[data-obligatoire]')];
+    cases.forEach((c) => c.querySelector('input').addEventListener('change', () => {
+      c.classList.toggle('manquante', !c.querySelector('input').checked && !message.hidden);
+      if (cases.every((x) => x.querySelector('input').checked)) message.hidden = true;
+    }));
+    form.addEventListener('submit', (e) => {
+      const vides = cases.filter((c) => !c.querySelector('input').checked);
+      if (!vides.length) return;
+      e.preventDefault();
+      cases.forEach((c) => c.classList.toggle('manquante', vides.includes(c)));
+      message.hidden = false;
+      vides[0].scrollIntoView({behavior: 'smooth', block: 'center'});
+    });
+  })();
+</script>
+{% endblock %}
 {% block body %}
 <main class="screen">
   {% include "_logo.html" %}
@@ -7,16 +27,17 @@
     <h1>{{ _("Payez le juste prix de votre panier.") }}</h1>
     <p class="lede">{{ _("Ajoutez vos tickets de caisse : FairBasket analyse vos dépenses et vous dit où acheter moins cher.") }}</p>
   </div>
-  {% include "_exemples.html" %}
   {% if supprime %}<p class="card" role="status" style="margin:0">{{ _("Votre compte et toutes vos données ont été supprimés.") }}</p>{% endif %}
-  {% if erreurs %}<ul class="errors" role="alert">{% for e in erreurs %}<li>{{ _(e) }}</li>{% endfor %}</ul>{% endif %}
+  {% set autres = erreurs|reject("equalto", "Cochez les cases encadrées en rouge pour créer votre compte.")|list if erreurs else [] %}
+  {% if autres %}<ul class="errors" role="alert">{% for e in autres %}<li>{{ _(e) }}</li>{% endfor %}</ul>{% endif %}
   <form method="post" action="/inscription">
     <div class="field"><label for="prenom">{{ _("Prénom") }}</label><input id="prenom" name="prenom" type="text" autocomplete="given-name" maxlength="50" required value="{{ form.prenom or '' }}"></div>
     <div class="field"><label for="email">{{ _("E-mail") }}</label><input id="email" name="email" type="email" autocomplete="email" required value="{{ form.email or '' }}"></div>
-    <label class="check"><input type="checkbox" name="age" value="1" required {% if form.age %}checked{% endif %}><span>{{ _("J'ai 18 ans ou plus.") }}</span></label>
-    <label class="check"><input type="checkbox" name="cgu" value="1" required {% if form.cgu %}checked{% endif %}><span>{{ _("J'accepte les {cgu} et la {confidentialite}.", cgu='<a href="#">'|safe ~ _("conditions d'utilisation") ~ '</a>'|safe, confidentialite='<a href="#">'|safe ~ _("politique de confidentialité") ~ '</a>'|safe)|safe }}</span></label>
-    <label class="check"><input type="checkbox" name="ia" value="1" required {% if form.ia %}checked{% endif %}><span>{{ _("J'accepte que mes tickets soient lus par une IA (Claude, d'Anthropic) pour en extraire les produits et les prix.") }}</span></label>
+    <label class="check{{ ' manquante' if erreurs and not form.age }}" data-obligatoire><input type="checkbox" name="age" value="1" {% if form.age %}checked{% endif %}><span>{{ _("J'ai 18 ans ou plus.") }}</span></label>
+    <label class="check{{ ' manquante' if erreurs and not form.cgu }}" data-obligatoire><input type="checkbox" name="cgu" value="1" {% if form.cgu %}checked{% endif %}><span>{{ _("J'accepte les {cgu} et la {confidentialite}.", cgu='<a href="#">'|safe ~ _("conditions d'utilisation") ~ '</a>'|safe, confidentialite='<a href="#">'|safe ~ _("politique de confidentialité") ~ '</a>'|safe)|safe }}</span></label>
+    <label class="check{{ ' manquante' if erreurs and not form.ia }}" data-obligatoire><input type="checkbox" name="ia" value="1" {% if form.ia %}checked{% endif %}><span>{{ _("J'accepte que mes tickets soient lus par une IA (Claude, d'Anthropic) pour en extraire les produits et les prix.") }}</span></label>
     <label class="check sep"><input type="checkbox" name="partage" value="1" {% if form.partage %}checked{% endif %}><span><strong>{{ _("Facultatif.") }}</strong> {{ _("Partager mes prix de façon anonyme pour aider les autres utilisateurs : produit, magasin, prix et date, jamais mon identité.") }}</span></label>
+    <p class="errors" id="cases-manquantes" role="alert" {% if not (erreurs and not (form.age and form.cgu and form.ia)) %}hidden{% endif %}>{{ _("Cochez les cases encadrées en rouge pour créer votre compte.") }}</p>
     <div class="push">
       <button class="btn" type="submit">{{ _("Recevoir mon lien de connexion") }}</button>
       <p class="small center">{{ _("Pas de mot de passe : un lien de connexion arrive par e-mail.") }}<br>{{ _("Déjà inscrit ?") }} <a href="/connexion"><strong>{{ _("Se connecter") }}</strong></a></p>
@@ -24,4 +45,24 @@
   </form>
   <p class="small center" style="margin:0">{% if lang == 'fr' %}<a href="/langue/en?retour={{ request.url.path }}" lang="en">English</a>{% else %}<a href="/langue/fr?retour={{ request.url.path }}" lang="fr">Français</a>{% endif %}</p>
 </main>
+<script>
+  // les trois cases obligatoires : un message clair et la case montree, au lieu d'une bulle du navigateur
+  (() => {
+    const form = document.querySelector('form[action="/inscription"]');
+    const message = document.getElementById('cases-manquantes');
+    const cases = [...form.querySelectorAll('[data-obligatoire]')];
+    cases.forEach((c) => c.querySelector('input').addEventListener('change', () => {
+      c.classList.toggle('manquante', !c.querySelector('input').checked && !message.hidden);
+      if (cases.every((x) => x.querySelector('input').checked)) message.hidden = true;
+    }));
+    form.addEventListener('submit', (e) => {
+      const vides = cases.filter((c) => !c.querySelector('input').checked);
+      if (!vides.length) return;
+      e.preventDefault();
+      cases.forEach((c) => c.classList.toggle('manquante', vides.includes(c)));
+      message.hidden = false;
+      vides[0].scrollIntoView({behavior: 'smooth', block: 'center'});
+    });
+  })();
+</script>
 {% endblock %}

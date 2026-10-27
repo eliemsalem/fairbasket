@@ -107,3 +107,4 @@ details.renommer summary::-webkit-details-marker{display:none}
 .row.bio .nom-produit{color:var(--bio);font-weight:600}
 .pastille-bio{height:28px;padding:0 10px;border-radius:999px;border:1px solid var(--field);background:transparent;color:var(--muted);font:inherit;font-size:12px;font-weight:700;cursor:pointer;flex:none}
 .pastille-bio[aria-pressed="true"]{background:var(--bio);border-color:var(--bio);color:var(--on-fg)}
+.check.manquante{outline:2px solid var(--danger);outline-offset:-2px}

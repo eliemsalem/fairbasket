@@ -205,7 +205,11 @@ EN = {
     "Autour de moi": "Near me",
     "Le bon nom du produit (précisez bio, marque, format si besoin)":
         "The right product name (add organic, brand, size if needed)",
-    "Corriger partout": "Fix everywhere", "pièce": "item",
+    "Corriger partout": "Fix everywhere",
+    "Cochez les cases encadrées en rouge pour créer votre compte.":
+        "Tick the boxes outlined in red to create your account.",
+    "L'e-mail peut arriver dans les spams : pensez à y regarder, et touchez « Ce n'est pas un spam ».":
+        "The e-mail may land in spam: check there, and tap “Not spam”.", "pièce": "item",
     "Prix réellement payés sur vos tickets, remises déduites, ramenés à la pièce, au kilo ou au litre : un lot de 2 avocats se compare à un avocat seul.":
         "Prices actually paid on your receipts, discounts included, per item, per kilo or per litre: a pack of 2 avocados compares with a single one.", "Bio": "Organic",
     "Touchez un prix pour voir le ticket. Pas le même produit ? Touchez son nom sur le ticket pour le corriger.":

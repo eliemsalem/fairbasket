@@ -5,6 +5,7 @@
   <div class="icon-circle"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></div>
   <h1>{{ _("Vous êtes sur la liste d'attente") }}</h1>
   <p class="lede">{{ _("Merci {prenom} ! FairBasket ouvre par petits groupes pendant la bêta. Vous recevrez un e-mail dès que votre accès est prêt.", prenom=user.prenom) }}</p>
+  <p class="card" style="margin:0">{{ _("L'e-mail peut arriver dans les spams : pensez à y regarder, et touchez « Ce n'est pas un spam ».") }}</p>
   <p class="small push">{{ _("En attendant, gardez vos tickets de caisse : vous pourrez les ajouter dès l'ouverture.") }}</p>
 </main>
 {% endblock %}

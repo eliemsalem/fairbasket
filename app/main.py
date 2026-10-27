@@ -178,7 +178,7 @@ def inscription(
     if not EMAIL_RE.match(email) or len(email) > 254:
         erreurs.append("Indiquez une adresse e-mail valide.")
     if not (age and cgu and ia):
-        erreurs.append("Les trois premières cases sont nécessaires pour créer un compte.")
+        erreurs.append("Cochez les cases encadrées en rouge pour créer votre compte.")
     if erreurs:
         return page(request, "inscription.html", status_code=400, form=form, erreurs=erreurs)
 

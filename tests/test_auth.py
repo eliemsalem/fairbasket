@@ -19,7 +19,7 @@ def connecter_admin(client, links):
 def test_les_trois_cases_sont_obligatoires(client, links):
     r = client.post("/inscription", data={"prenom": "Elie", "email": "a@b.fr", "age": "1", "cgu": "1"})
     assert r.status_code == 400
-    assert "trois premières cases" in r.text
+    assert "Cochez les cases encadrées" in r.text and r.text.count("check manquante") == 1  # la case IA, montree en rouge
     assert links == {}
 
 
