@@ -11,19 +11,18 @@
   <h1 class="mono" style="font-size:40px;line-height:1">{{ r.total|euros }}</h1>
 
   {% set s = r.store %}
-  {% if r.adresse_ok %}
-    <div class="check"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex:none"><path d="M5 12l5 5 9-10"/></svg><span>{{ _("Adresse vérifiée") }}{% if s and (s.adresse or s.ville) %} : {{ [s.adresse, ((s.code_postal or '') ~ ' ' ~ (s.ville or ''))|trim]|select|join(', ') }}{% endif %}</span></div>
-  {% elif s and s.enseigne != 'Inconnue' %}
-    <form method="post" action="/tickets/{{ r.id }}/adresse" class="card" style="border:2px solid var(--fg);gap:10px">
-      <strong>{{ _("Adresse du magasin à confirmer") }}</strong>
-      <span class="small">{% if s.adresse or s.ville %}{{ _("Elle n'est pas imprimée sur ce ticket. Est-ce bien ce magasin ?") }}{% else %}{{ _("Elle n'est pas imprimée sur ce ticket. Indiquez-la pour comparer les prix du bon magasin.") }}{% endif %}</span>
+  {% if s and s.enseigne != 'Inconnue' %}
+  <details class="small">
+    <summary style="cursor:pointer;list-style:none">{% if s.adresse or s.ville %}{{ [s.adresse, ((s.code_postal or '') ~ ' ' ~ (s.ville or ''))|trim]|select|join(', ') }} · <u>{{ _("Modifier") }}</u>{% else %}{{ _("Adresse du magasin inconnue") }} · <u>{{ _("L'indiquer") }}</u>{% endif %}</summary>
+    <form method="post" action="/tickets/{{ r.id }}/adresse" style="gap:10px;margin-top:10px">
       <div class="field"><label for="adresse">{{ _("Adresse") }}</label><input id="adresse" name="adresse" type="text" autocomplete="street-address" value="{{ s.adresse or '' }}" placeholder="{{ _('12 rue de Flandre') }}"></div>
       <div style="display:flex;gap:10px">
         <div class="field" style="flex:0 0 7.5em;min-width:0"><label for="cp">{{ _("Code postal") }}</label><input id="cp" name="code_postal" type="text" inputmode="numeric" autocomplete="postal-code" value="{{ s.code_postal or '' }}" placeholder="75019"></div>
         <div class="field" style="flex:1;min-width:0"><label for="ville">{{ _("Ville") }}</label><input id="ville" name="ville" type="text" autocomplete="address-level2" value="{{ s.ville or '' }}" placeholder="Paris"></div>
       </div>
-      <button class="btn" type="submit">{{ _("Confirmer l'adresse") }}</button>
+      <button class="btn ghost" type="submit">{{ _("Enregistrer l'adresse") }}</button>
     </form>
+  </details>
   {% endif %}
 
   {% if r.statut == 'ok' %}

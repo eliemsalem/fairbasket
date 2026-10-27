@@ -57,4 +57,5 @@ OPEN_PRICES_LAT = float(os.environ.get("OPEN_PRICES_LAT", "48.8897"))
 OPEN_PRICES_LON = float(os.environ.get("OPEN_PRICES_LON", "2.3820"))
 OPEN_PRICES_RAYON_KM = int(os.environ.get("OPEN_PRICES_RAYON_KM", "10"))
 OPEN_PRICES_JOURS = 90
+ADRESSES_AUTO = os.environ.get("ADRESSES_AUTO", "1") == "1"  # adresse des magasins cherchee toute seule (OSM, BAN)
 OPEN_PRICES_AUTO = os.environ.get("OPEN_PRICES_AUTO", "1") == "1"  # synchronisation quotidienne en tache de fond

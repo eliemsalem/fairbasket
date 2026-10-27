@@ -18,7 +18,7 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
 
-from . import auth, config, i18n, liste, openprices, panier, stats, tickets
+from . import adresses, auth, config, i18n, liste, openprices, panier, stats, tickets
 from .db import get_db, init_db
 from .models import OpenPrice, Product, Receipt, ReceiptItem, ShoppingItem, Store, User, now
 
@@ -41,6 +41,8 @@ async def lifespan(_app):
     log.info("Démarrage : base %s, e-mails %s", config.DATABASE_URL.split(":", 1)[0], config.EMAIL_BACKEND)
     if config.OPEN_PRICES_AUTO:
         openprices.demarrer_synchro_quotidienne()
+    if config.ADRESSES_AUTO:
+        adresses.demarrer_recherche()
     yield
 
 
@@ -236,11 +238,8 @@ def accueil(request: Request, periode: str = "an", user: User = Depends(require_
     recents = db.scalars(select(Receipt).where(Receipt.user_id == user.id)
                          .order_by(Receipt.achete_le.desc(), Receipt.id.desc()).limit(10)).all()
     a_corriger = db.scalars(select(Receipt).where(Receipt.user_id == user.id, Receipt.statut == "ecart")).all()
-    sans_adresse = db.scalars(select(Receipt).join(Store).where(Receipt.user_id == user.id, Receipt.adresse_ok.is_(False),
-                                                                Store.enseigne != "Inconnue")
-                              .order_by(Receipt.achete_le.desc())).all()
     return page(request, "accueil.html", user=user, admin=auth.is_admin(user), recents=recents,
-                a_corriger=a_corriger, sans_adresse=sans_adresse, t=stats.tableau_de_bord(db, user, periode))
+                a_corriger=a_corriger, t=stats.tableau_de_bord(db, user, periode))
 
 
 @app.get("/comparer", response_class=HTMLResponse)

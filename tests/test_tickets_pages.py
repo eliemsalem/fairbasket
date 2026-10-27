@@ -123,9 +123,8 @@ def test_page_adresse_et_photos(client, links, monkeypatch):
     monkeypatch.setattr(tickets, "photos_assemblees", lambda photos: b"assemblees")
     r = client.post("/tickets", files=[("fichier", ("a.jpg", b"haut", "image/jpeg")),
                                        ("fichier", ("b.jpg", b"bas", "image/jpeg"))], data={"meme_ticket": "1"})
-    assert vus == [2] and "Adresse du magasin à confirmer" in r.text
-    assert "1 magasin : adresse à confirmer" in client.get("/accueil").text
+    assert vus == [2] and "Adresse du magasin inconnue" in r.text
     numero = r.url.path.rsplit("/", 1)[1]
     r = client.post(f"/tickets/{numero}/adresse", data={"adresse": "85 rue de Meaux", "code_postal": "75019",
                                                          "ville": "Paris"})
-    assert "Adresse vérifiée : 85 rue de Meaux, 75019 Paris" in r.text
+    assert "85 rue de Meaux, 75019 Paris" in r.text

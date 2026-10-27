@@ -13,9 +13,6 @@
   {% if a_corriger %}
   <a class="card" href="/tickets/{{ a_corriger[0].id }}" style="text-decoration:none;border:2px solid var(--fg)"><strong>{{ _("{n} ticket(s) à vérifier", n=a_corriger|length) }}</strong><br><span class="small">{{ _("La somme des articles ne correspond pas au total.") }}</span></a>
   {% endif %}
-  {% if sans_adresse %}
-  <a class="card" href="/tickets/{{ sans_adresse[0].id }}" style="text-decoration:none"><strong>{{ _("{n} magasin(s) : adresse à confirmer", n=sans_adresse|map(attribute='store_id')|unique|list|length) }}</strong><br><span class="small">{{ _("Elle n'est pas imprimée sur le ticket : une confirmation suffit par magasin.") }}</span></a>
-  {% endif %}
 
   <div style="display:flex;flex-direction:column;gap:4px">
     <span class="small"><strong>{% if t.periode == 'mois' %}{{ mois(t.debut)|capitalize }}{% else %}{{ mois(t.debut)|capitalize }} – {{ mois(t.fin) }}{% endif %}</strong></span>

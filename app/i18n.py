@@ -184,16 +184,9 @@ EN = {
         "Estimate: sizes may differ between stores (open a store to see the product used). The percentage compares the same products with what you pay today.",
     "Touchez un prix pour voir le ticket.": "Tap a price to see the receipt.",
     "Plusieurs morceaux d'un même ticket : seulement des photos.": "Several parts of one receipt: photos only.",
-    "{n} magasin(s) : adresse à confirmer": "{n} store(s): address to confirm",
-    "Elle n'est pas imprimée sur le ticket : une confirmation suffit par magasin.":
-        "It is not printed on the receipt: one confirmation per store is enough.",
-    "Adresse vérifiée": "Address verified", "Adresse du magasin à confirmer": "Store address to confirm",
-    "Elle n'est pas imprimée sur ce ticket. Est-ce bien ce magasin ?":
-        "It is not printed on this receipt. Is this the right store?",
-    "Elle n'est pas imprimée sur ce ticket. Indiquez-la pour comparer les prix du bon magasin.":
-        "It is not printed on this receipt. Enter it to compare prices for the right store.",
+    "Modifier": "Edit", "Adresse du magasin inconnue": "Store address unknown", "L'indiquer": "Add it",
+    "Enregistrer l'adresse": "Save the address",
     "Adresse": "Address", "12 rue de Flandre": "12 rue de Flandre", "Code postal": "Postcode", "Ville": "City",
-    "Confirmer l'adresse": "Confirm the address",
     "Ticket trop long ? Plusieurs photos": "Receipt too long? Several photos", "Ticket long": "Long receipt",
     "Photographiez le ticket en plusieurs fois, du haut vers le bas, en laissant une ou deux lignes en commun entre deux photos.":
         "Photograph the receipt in several parts, from top to bottom, keeping one or two lines in common between photos.",

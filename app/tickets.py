@@ -187,10 +187,15 @@ def enregistrer_ticket(db: Session, user: User, data: bytes, fichier_nom: str, m
             return Resultat(meme, doublon=True)
 
     statut = "ok" if total is not None and abs(somme - remises - total) <= TOLERANCE else "ecart"
+    # adresse absente du ticket : l'app la cherche elle-meme, la personne n'a rien a saisir
+    trouvee = False
+    if store is not None and config.ADRESSES_AUTO and not (store.adresse or store.code_postal):
+        from .adresses import completer
+        trouvee = completer(db, store)
     receipt = Receipt(
         user_id=user.id, store=store, achete_le=achete_le, total=total, somme_articles=somme,
         remises_globales=remises, statut=statut, remarques=(d.get("remarques") or None) and d["remarques"][:500],
-        adresse_ok=bool(d.get("adresse") or d.get("code_postal")) or _adresse_deja_confirmee(db, user, store),
+        adresse_ok=bool(d.get("adresse") or d.get("code_postal")) or trouvee or _adresse_deja_confirmee(db, user, store),
         source=TYPES_ACCEPTES[media_type], importe=importe, fichier_nom=fichier_nom[:200], file_sha256=sha,
         modele=lecture.modele, tokens_entree=lecture.tokens_entree, tokens_sortie=lecture.tokens_sortie,
         items=items,
