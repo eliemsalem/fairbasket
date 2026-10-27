@@ -203,6 +203,19 @@ EN = {
     "Magasins autour de {ville} (zone par défaut) : elle s'adapte toute seule à vos magasins dès votre premier ticket.":
         "Stores around {ville} (default area): it adapts to your stores on its own from your first receipt.",
     "Autour de moi": "Near me",
+    "Exemple réel": "Real example",
+    "Ce que FairBasket a trouvé dans les tickets d'un testeur": "What FairBasket found in a tester's receipts",
+    "Pavé de saumon": "Salmon fillet", "Œufs bio ×6": "Organic eggs ×6", "Champignons de Paris": "Button mushrooms",
+    "acheté {n} fois": "bought {n} times",
+    "{euros} d'écart sur l'année, pour le même produit.": "{euros} difference over the year, for the same product.",
+    "Deux fois plus cher d'une enseigne à l'autre.": "Twice as expensive from one chain to another.",
+    "Son panier habituel coûte 39 % de plus chez Monoprix que chez Carrefour.":
+        "Their usual basket costs 39% more at Monoprix than at Carrefour.",
+    "46 tickets ajoutés en quelques minutes grâce aux PDF de sa carte de fidélité.":
+        "46 receipts added in minutes thanks to the PDFs from their loyalty card.",
+    "Ajouter mon premier ticket": "Add my first receipt",
+    "Astuce : avec une carte de fidélité, téléchargez vos tickets en PDF depuis le site de l'enseigne et ajoutez-les tous d'un coup.":
+        "Tip: with a loyalty card, download your receipts as PDFs from the store's website and add them all at once.",
     "Un souci ? Une idée ?": "A problem? An idea?", "Merci !": "Thank you!", "Continuer": "Continue",
     "Votre message est bien arrivé. Il aide à améliorer FairBasket pour tout le monde.":
         "Your message has arrived. It helps make FairBasket better for everyone.",

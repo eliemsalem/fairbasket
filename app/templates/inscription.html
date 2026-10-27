@@ -7,6 +7,7 @@
     <h1>{{ _("Payez le juste prix de votre panier.") }}</h1>
     <p class="lede">{{ _("Ajoutez vos tickets de caisse : FairBasket analyse vos dépenses et vous dit où acheter moins cher.") }}</p>
   </div>
+  {% include "_exemples.html" %}
   {% if supprime %}<p class="card" role="status" style="margin:0">{{ _("Votre compte et toutes vos données ont été supprimés.") }}</p>{% endif %}
   {% if erreurs %}<ul class="errors" role="alert">{% for e in erreurs %}<li>{{ _(e) }}</li>{% endfor %}</ul>{% endif %}
   <form method="post" action="/inscription">

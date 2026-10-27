@@ -22,6 +22,9 @@
 
   {% if t.nb_tickets == 0 and not recents %}
     <div class="card"><p class="lede" style="margin:0">{{ _("Pas encore de ticket. Appuyez sur + pour ajouter le premier : vos dépenses s'afficheront ici.") }}</p></div>
+    <a class="btn" href="/tickets/ajouter">{{ _("Ajouter mon premier ticket") }}</a>
+    <p class="small" style="margin:0">{{ _("Astuce : avec une carte de fidélité, téléchargez vos tickets en PDF depuis le site de l'enseigne et ajoutez-les tous d'un coup.") }}</p>
+    {% include "_exemples.html" %}
   {% else %}
   <div class="tiles">
     <div class="card"><span class="small"><strong>{{ _("Tickets") }}</strong></span><br><span class="mono" style="font-size:22px;font-weight:700">{{ t.nb_tickets }}</span></div>

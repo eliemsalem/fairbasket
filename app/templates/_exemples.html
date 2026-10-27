@@ -1,0 +1,24 @@
+{# Exemples reels, tires des tickets d'un testeur (Paris 19e, 12 mois) : montrer ce que l'app trouve #}
+<section class="card" style="display:flex;flex-direction:column;gap:12px" aria-labelledby="exemples-titre">
+  <div>
+    <span class="eyebrow">{{ _("Exemple réel") }}</span>
+    <h2 id="exemples-titre" style="margin-top:2px">{{ _("Ce que FairBasket a trouvé dans les tickets d'un testeur") }}</h2>
+  </div>
+  {% for nom, bas, ens_bas, haut, ens_haut, achats, ecart in [
+      (_("Pavé de saumon"), 6.59, "Carrefour", 9.59, "Monoprix", 25, 75),
+      (_("Œufs bio ×6"), 2.49, "Carrefour", 3.99, "Monoprix", 17, 25.5),
+      (_("Champignons de Paris"), 0.99, "Carrefour", 1.99, "Monoprix", 2, 2)] %}
+    <div style="display:flex;flex-direction:column;gap:4px;padding-top:10px;border-top:1px solid var(--line)">
+      <div style="display:flex;justify-content:space-between;gap:10px"><strong>{{ nom }}</strong><span class="small" style="white-space:nowrap">{{ _("acheté {n} fois", n=achats) }}</span></div>
+      <div style="display:flex;gap:14px;flex-wrap:wrap;font-size:14px">
+        <span><span class="dot" style="display:inline-block;width:9px;height:9px;background:{{ ens_bas|couleur }}"></span> {{ ens_bas }} <strong class="mono">{{ bas|euros }}</strong></span>
+        <span><span class="dot" style="display:inline-block;width:9px;height:9px;background:{{ ens_haut|couleur }}"></span> {{ ens_haut }} <span class="mono">{{ haut|euros }}</span></span>
+      </div>
+      <span class="small">{% if achats > 2 %}{{ _("{euros} d'écart sur l'année, pour le même produit.", euros=ecart|euros) }}{% else %}{{ _("Deux fois plus cher d'une enseigne à l'autre.") }}{% endif %}</span>
+    </div>
+  {% endfor %}
+  <div style="background:var(--fg);color:var(--on-fg);border-radius:10px;padding:12px 14px">
+    <strong>{{ _("Son panier habituel coûte 39 % de plus chez Monoprix que chez Carrefour.") }}</strong><br>
+    <span style="font-size:14px;opacity:.8">{{ _("46 tickets ajoutés en quelques minutes grâce aux PDF de sa carte de fidélité.") }}</span>
+  </div>
+</section>
