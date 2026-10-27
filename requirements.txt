@@ -8,3 +8,4 @@ anthropic==0.125.0
 pillow==11.0.0
 psycopg[binary]==3.2.3
 alembic==1.14.0
+pypdf==5.1.0

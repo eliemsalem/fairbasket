@@ -236,3 +236,40 @@ def test_liste_des_enseignes():
     assert not est_bio("Carrefour", "MARKET PARIS JEAN JAURES") and not est_bio("Monoprix")
     assert reconnaitre("Matcha & Co") == (None, False)  # « match » seulement comme mot entier
     assert enseigne_canonique("Épicerie du coin") == "Épicerie du coin"
+
+
+def test_plusieurs_photos_un_ticket(db, tmp_path):
+    import io
+    from PIL import Image
+
+    def photo(couleur):
+        out = io.BytesIO()
+        Image.new("RGB", (300, 400), couleur).save(out, format="JPEG")
+        return out.getvalue()
+    u = nouvel_utilisateur(db, "a@x.fr")
+    recu = {}
+
+    def lire(data, media_type, suite=()):
+        recu["photos"] = 1 + len(suite)
+        return Lecture(donnees=ALDI, modele="test", tokens_entree=1, tokens_sortie=1)
+    r = enregistrer_ticket(db, u, photo("white"), "t.jpg", "image/jpeg", lire=lire,
+                           suite=[photo("gray"), photo("black")]).receipt
+    assert recu["photos"] == 3 and r.statut == "ok"
+    from PIL import Image as I
+    assert I.open(tmp_path / r.fichier_chemin).size == (300, 1200)  # gardees l'une sous l'autre
+    with pytest.raises(TicketRefuse):
+        enregistrer_ticket(db, u, b"%PDF", "t.pdf", "application/pdf", lire=lire, suite=[b"x"])
+
+
+def test_adresse_a_confirmer(db):
+    from app.tickets import confirmer_adresse
+    u = nouvel_utilisateur(db, "a@x.fr")
+    assert enregistrer_ticket(db, u, b"1", "t.pdf", "application/pdf", lire=fausse_lecture(ALDI)).receipt.adresse_ok
+    sans = {**ALDI, "magasin": "Aldi autre", "adresse": None, "code_postal": None, "ville": None, "total": 0.95,
+            "articles": ALDI["articles"][:1]}
+    r = enregistrer_ticket(db, u, b"2", "t.pdf", "application/pdf", lire=fausse_lecture(sans)).receipt
+    assert not r.adresse_ok  # pas d'adresse sur le ticket : la personne doit la confirmer
+    confirmer_adresse(db, r, " 3 rue  du Test ", "75019", "Paris")
+    assert r.adresse_ok and r.store.adresse == "3 rue du Test" and r.store.ville == "Paris"
+    sans2 = {**sans, "heure": "19:00"}
+    assert enregistrer_ticket(db, u, b"3", "t.pdf", "application/pdf", lire=fausse_lecture(sans2)).receipt.adresse_ok

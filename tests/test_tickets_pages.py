@@ -105,3 +105,27 @@ def test_import_reserve_a_l_admin(client, links):
     client.post("/tickets", files={"fichier": ("b.pdf", b"autre", "application/pdf")}, data={"importe": "1"})
     s = SessionLocal()
     assert s.query(Receipt).filter(Receipt.importe.is_(False)).count() == 1  # marie ne peut pas contourner le quota
+
+
+def test_page_adresse_et_photos(client, links, monkeypatch):
+    from app import tickets
+    from app.lecture import Lecture
+    from tests.test_tickets import ALDI
+    from tests.test_auth import connecter_admin
+    connecter_admin(client, links)
+    sans = {**ALDI, "adresse": None, "code_postal": None, "ville": None}
+    vus = []
+
+    def lire(data, media_type, suite=()):
+        vus.append(1 + len(suite))
+        return Lecture(donnees=sans, modele="t", tokens_entree=1, tokens_sortie=1)
+    monkeypatch.setattr(tickets, "lire_ticket", lire)
+    monkeypatch.setattr(tickets, "photos_assemblees", lambda photos: b"assemblees")
+    r = client.post("/tickets", files=[("fichier", ("a.jpg", b"haut", "image/jpeg")),
+                                       ("fichier", ("b.jpg", b"bas", "image/jpeg"))], data={"meme_ticket": "1"})
+    assert vus == [2] and "Adresse du magasin à confirmer" in r.text
+    assert "1 magasin : adresse à confirmer" in client.get("/accueil").text
+    numero = r.url.path.rsplit("/", 1)[1]
+    r = client.post(f"/tickets/{numero}/adresse", data={"adresse": "85 rue de Meaux", "code_postal": "75019",
+                                                         "ville": "Paris"})
+    assert "Adresse vérifiée : 85 rue de Meaux, 75019 Paris" in r.text

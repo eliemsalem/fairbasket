@@ -5,14 +5,15 @@ import unicodedata
 from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal
-from typing import Callable, Optional
+from typing import Callable, Optional, Sequence
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from . import config
 from .enseignes import est_bio, reconnaitre
-from .lecture import Lecture, LectureImpossible, image_compressee, lire_ticket
+from .lecture import Lecture, LectureImpossible, image_compressee, lire_ticket, photos_assemblees
+from .lecture_code import lire_pdf
 from .models import Product, ProductAlias, Receipt, ReceiptItem, SharedPrice, Store, User, now
 
 TOLERANCE = Decimal("0.02")
@@ -118,10 +119,14 @@ def _date_achat(d: dict) -> Optional[datetime]:
 
 
 def enregistrer_ticket(db: Session, user: User, data: bytes, fichier_nom: str, media_type: str,
-                       lire: Optional[Callable[[bytes, str], Lecture]] = None, importe: bool = False) -> Resultat:
+                       lire: Optional[Callable[..., Lecture]] = None, importe: bool = False,
+                       suite: Sequence[bytes] = ()) -> Resultat:
+    """suite : les photos suivantes du meme ticket, quand il ne tient pas sur une seule photo."""
     if media_type not in TYPES_ACCEPTES:
         raise TicketRefuse("Format non pris en charge : envoyez un PDF ou une photo (JPEG, PNG).")
-    sha = hashlib.sha256(data).hexdigest()
+    if suite and media_type == "application/pdf":
+        raise TicketRefuse("Plusieurs morceaux d'un même ticket : seulement des photos.")
+    sha = hashlib.sha256(data + b"".join(suite)).hexdigest()
     existant = db.scalar(select(Receipt).where(Receipt.user_id == user.id, Receipt.file_sha256 == sha))
     if existant:
         return Resultat(existant, doublon=True)
@@ -129,7 +134,12 @@ def enregistrer_ticket(db: Session, user: User, data: bytes, fichier_nom: str, m
         raise TicketRefuse("Limite de {n} tickets par mois atteinte.", n=config.MAX_TICKETS_PAR_MOIS)
 
     try:
-        lecture = (lire or lire_ticket)(data, media_type)
+        # un PDF d'un format connu est lu par le code (gratuit, exact) ; sinon, ou si le total ne tombe pas juste,
+        # Claude lit le ticket
+        lecture = None if lire else media_type == "application/pdf" and lire_pdf(db, data)
+        if not lecture:
+            lire = lire or lire_ticket
+            lecture = lire(data, media_type, suite=suite) if suite else lire(data, media_type)
     except LectureImpossible as e:
         raise TicketRefuse(str(e))
     d = lecture.donnees
@@ -168,6 +178,7 @@ def enregistrer_ticket(db: Session, user: User, data: bytes, fichier_nom: str, m
     receipt = Receipt(
         user_id=user.id, store=store, achete_le=achete_le, total=total, somme_articles=somme,
         remises_globales=remises, statut=statut, remarques=(d.get("remarques") or None) and d["remarques"][:500],
+        adresse_ok=bool(d.get("adresse") or d.get("code_postal")) or _adresse_deja_confirmee(db, user, store),
         source=TYPES_ACCEPTES[media_type], importe=importe, fichier_nom=fichier_nom[:200], file_sha256=sha,
         modele=lecture.modele, tokens_entree=lecture.tokens_entree, tokens_sortie=lecture.tokens_sortie,
         items=items,
@@ -180,6 +191,8 @@ def enregistrer_ticket(db: Session, user: User, data: bytes, fichier_nom: str, m
     dossier.mkdir(parents=True, exist_ok=True)
     if media_type == "application/pdf":
         ext, contenu = "pdf", data
+    elif suite:
+        ext, contenu = "jpg", photos_assemblees([data, *suite])
     elif len(data) > 3 * 1024 * 1024:
         # une photo de telephone pese 12 a 18 Mo : on garde une version compressee, lisible
         ext, contenu = "jpg", image_compressee(data)
@@ -220,7 +233,29 @@ def changer_magasin(db: Session, receipt: Receipt, enseigne: str, nom: str) -> N
     if not enseigne_canonique(enseigne):
         return
     receipt.store = _magasin(db, {"enseigne": enseigne, "magasin": nom or enseigne})
+    receipt.adresse_ok = False  # autre magasin : son adresse est a confirmer
     db.commit()
+
+
+def confirmer_adresse(db: Session, receipt: Receipt, adresse: str, code_postal: str, ville: str) -> None:
+    """La personne confirme (ou indique) l'adresse du magasin : le ticket est valide, le magasin la garde."""
+    if receipt.store is not None:
+        for champ, valeur, taille in (("adresse", adresse, 200), ("code_postal", code_postal, 10), ("ville", ville, 80)):
+            valeur = " ".join((valeur or "").split())[:taille]
+            if valeur:
+                setattr(receipt.store, champ, valeur)
+    # une seule confirmation par magasin : ses autres tickets sont valides aussi
+    for r in db.scalars(select(Receipt).where(Receipt.user_id == receipt.user_id, Receipt.store_id == receipt.store_id)):
+        r.adresse_ok = True
+    receipt.adresse_ok = True
+    db.commit()
+
+
+def _adresse_deja_confirmee(db: Session, user: User, store: Optional[Store]) -> bool:
+    if store is None or store.id is None:
+        return False
+    return db.scalar(select(func.count()).select_from(Receipt).where(
+        Receipt.user_id == user.id, Receipt.store_id == store.id, Receipt.adresse_ok.is_(True))) > 0
 
 
 def corriger_ticket(db: Session, user: User, receipt: Receipt, lignes: dict, nouvelle: Optional[tuple]) -> None:

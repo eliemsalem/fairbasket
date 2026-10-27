@@ -236,8 +236,10 @@ def accueil(request: Request, periode: str = "an", user: User = Depends(require_
     recents = db.scalars(select(Receipt).where(Receipt.user_id == user.id)
                          .order_by(Receipt.achete_le.desc(), Receipt.id.desc()).limit(10)).all()
     a_corriger = db.scalars(select(Receipt).where(Receipt.user_id == user.id, Receipt.statut == "ecart")).all()
+    sans_adresse = db.scalars(select(Receipt).where(Receipt.user_id == user.id, Receipt.adresse_ok.is_(False))
+                              .order_by(Receipt.achete_le.desc())).all()
     return page(request, "accueil.html", user=user, admin=auth.is_admin(user), recents=recents,
-                a_corriger=a_corriger, t=stats.tableau_de_bord(db, user, periode))
+                a_corriger=a_corriger, sans_adresse=sans_adresse, t=stats.tableau_de_bord(db, user, periode))
 
 
 @app.get("/comparer", response_class=HTMLResponse)
@@ -368,6 +370,7 @@ def profil_supprimer(confirmation: str = Form(""), user: User = Depends(require_
 # --- Tickets ----------------------------------------------------------------
 
 TAILLE_MAX = 30 * 1024 * 1024
+MAX_PHOTOS = 6  # morceaux d'un meme ticket long
 
 
 def _ticket_de(db: Session, user: User, receipt_id: int) -> Receipt:
@@ -390,22 +393,25 @@ def tickets_importer(request: Request, _: User = Depends(require_admin)):
 
 
 @app.post("/tickets")
-def ticket_envoi(request: Request, fichier: UploadFile = File(...), importe: Optional[str] = Form(None),
-                 user: User = Depends(require_user), db: Session = Depends(get_db)):
-    data = fichier.file.read(TAILLE_MAX + 1)
-    media_type = fichier.content_type
+def ticket_envoi(request: Request, fichier: list[UploadFile] = File(...), importe: Optional[str] = Form(None),
+                 meme_ticket: Optional[str] = Form(None), user: User = Depends(require_user),
+                 db: Session = Depends(get_db)):
+    # un fichier = un ticket ; avec meme_ticket, les fichiers sont les photos successives d'un ticket long
+    fichiers = fichier[:MAX_PHOTOS] if meme_ticket else fichier[:1]
+    contenus = [f.file.read(TAILLE_MAX + 1) for f in fichiers]
+    media_type = fichiers[0].content_type
     if not media_type or media_type == "application/octet-stream":
-        media_type = mimetypes.guess_type(fichier.filename or "")[0] or ""
+        media_type = mimetypes.guess_type(fichiers[0].filename or "")[0] or ""
     erreur = None
-    if not data:
+    if not all(contenus):
         erreur = ("Le fichier est vide.", {})
-    elif len(data) > TAILLE_MAX:
+    elif sum(len(c) for c in contenus) > TAILLE_MAX:
         erreur = ("Fichier trop lourd (30 Mo maximum).", {})
     else:
         try:
             # import d'historique (hors quota) : reserve a l'administration pour l'instant
-            res = tickets.enregistrer_ticket(db, user, data, fichier.filename or "ticket", media_type,
-                                             importe=bool(importe) and auth.is_admin(user))
+            res = tickets.enregistrer_ticket(db, user, contenus[0], fichiers[0].filename or "ticket", media_type,
+                                             importe=bool(importe) and auth.is_admin(user), suite=contenus[1:])
             suffixe = "?doublon=1" if res.doublon else ""
             return RedirectResponse(f"/tickets/{res.receipt.id}{suffixe}", status_code=303)
         except tickets.TicketRefuse as e:
@@ -442,6 +448,14 @@ def ticket_magasin(receipt_id: int, enseigne: str = Form(""), magasin: str = For
                    user: User = Depends(require_user), db: Session = Depends(get_db)):
     r = _ticket_de(db, user, receipt_id)
     tickets.changer_magasin(db, r, enseigne, magasin)
+    return RedirectResponse(f"/tickets/{r.id}", status_code=303)
+
+
+@app.post("/tickets/{receipt_id}/adresse")
+def ticket_adresse(receipt_id: int, adresse: str = Form(""), code_postal: str = Form(""), ville: str = Form(""),
+                   user: User = Depends(require_user), db: Session = Depends(get_db)):
+    r = _ticket_de(db, user, receipt_id)
+    tickets.confirmer_adresse(db, r, adresse, code_postal, ville)
     return RedirectResponse(f"/tickets/{r.id}", status_code=303)
 
 

@@ -4,7 +4,7 @@ import base64
 import io
 import json
 from dataclasses import dataclass
-from typing import Optional
+from typing import Optional, Sequence
 
 import anthropic
 from PIL import Image, ImageOps
@@ -103,6 +103,21 @@ def image_compressee(data: bytes) -> bytes:
     return out.getvalue()
 
 
+def photos_assemblees(photos: Sequence[bytes]) -> bytes:
+    """Les photos d'un ticket long, l'une sous l'autre, en un seul JPEG (pour garder l'original)."""
+    images = [Image.open(io.BytesIO(image_compressee(p))) for p in photos]
+    largeur = max(i.width for i in images)
+    images = [i if i.width == largeur else i.resize((largeur, round(i.height * largeur / i.width))) for i in images]
+    tout = Image.new("RGB", (largeur, sum(i.height for i in images)), "white")
+    y = 0
+    for i in images:
+        tout.paste(i, (0, y))
+        y += i.height
+    out = io.BytesIO()
+    tout.save(out, format="JPEG", quality=80)
+    return out.getvalue()
+
+
 def _image_pour_api(data: bytes) -> tuple[str, bytes]:
     return "image/jpeg", image_compressee(data)
 
@@ -116,8 +131,16 @@ def _bloc_document(data: bytes, media_type: str) -> dict:
                                          "data": base64.standard_b64encode(data).decode()}}
 
 
-def lire_ticket(data: bytes, media_type: str, client: Optional[anthropic.Anthropic] = None) -> Lecture:
+def lire_ticket(data: bytes, media_type: str, client: Optional[anthropic.Anthropic] = None,
+                suite: Sequence[bytes] = ()) -> Lecture:
+    """suite : les photos suivantes d'un ticket trop long pour tenir sur une seule photo."""
     client = client or anthropic.Anthropic()
+    blocs = [_bloc_document(data, media_type)] + [_bloc_document(p, "image/jpeg") for p in suite]
+    consigne = "Extrais les données de ce ticket."
+    if suite:
+        consigne = (f"Ces {len(blocs)} photos sont des morceaux successifs du même ticket, du haut vers le bas. "
+                    "Elles peuvent se chevaucher : une ligne visible sur deux photos ne compte qu'une fois. "
+                    "Extrais les données du ticket entier.")
     repli = {}
     if "haiku" not in config.CLAUDE_MODEL:
         # si le modele refuse, l'API relance la meme demande sur le modele de repli recommande
@@ -129,8 +152,7 @@ def lire_ticket(data: bytes, media_type: str, client: Optional[anthropic.Anthrop
         system=CONSIGNES,
         **repli,
         output_config={"effort": config.CLAUDE_EFFORT, "format": {"type": "json_schema", "schema": SCHEMA}},
-        messages=[{"role": "user", "content": [_bloc_document(data, media_type),
-                                               {"type": "text", "text": "Extrais les données de ce ticket."}]}],
+        messages=[{"role": "user", "content": blocs + [{"type": "text", "text": consigne}]}],
     )
     if response.stop_reason == "refusal":
         raise LectureImpossible("La lecture a été refusée par le modèle.")

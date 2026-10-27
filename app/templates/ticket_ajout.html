@@ -25,7 +25,22 @@
       </label>
       <noscript><button class="btn" type="submit">{{ _("Envoyer") }}</button></noscript>
     </form>
-    <p class="small">{{ _("Le ticket est lu par une IA pour en extraire les produits et les prix. Les numéros de carte ne sont jamais conservés.") }}</p>
+    <button type="button" class="btn ghost" id="long">{{ _("Ticket trop long ? Plusieurs photos") }}</button>
+    <p class="small">{{ _("Le ticket est lu pour en extraire les produits et les prix (par une IA quand son format n'est pas encore connu). Les numéros de carte ne sont jamais conservés.") }}</p>
+  </div>
+  <div id="morceaux" hidden style="display:flex;flex-direction:column;gap:16px">
+    <h1>{{ _("Ticket long") }}</h1>
+    <p class="lede">{{ _("Photographiez le ticket en plusieurs fois, du haut vers le bas, en laissant une ou deux lignes en commun entre deux photos.") }}</p>
+    <div id="vignettes" style="display:flex;flex-wrap:wrap;gap:8px"></div>
+    <label class="big-choice">
+      <input type="file" accept="image/*" capture="environment" class="visually-hidden" data-morceau>
+      <span style="font-size:17px;font-weight:700" id="ajout-morceau"></span>
+    </label>
+    <label class="btn ghost" style="cursor:pointer">
+      <input type="file" accept="image/*" multiple class="visually-hidden" data-morceau>
+      {{ _("Choisir dans la galerie") }}
+    </label>
+    <button type="button" class="btn" id="lire-morceaux" disabled></button>
   </div>
   <div id="lecture" hidden style="display:flex;flex-direction:column;gap:16px" aria-live="polite">
     <h1>{{ _("Lecture du ticket…") }}</h1>
@@ -67,7 +82,11 @@
     "bilan": _("Ajoutés : {ok} · Déjà présents : {doublons} · En échec : {echecs}"),
     "fini": _("Lecture terminée"),
     "reseau": _("Envoi impossible : vérifiez votre connexion et réessayez."),
+    "premiere": _("Prendre la première photo (le haut)"),
+    "suivante": _("Prendre la photo suivante"),
+    "lire": _("Lire le ticket ({n} photos)"),
   }|tojson }};
+  const MAX_PHOTOS = 6;
   const remplir = (modele, v) => modele.replace(/{(\w+)}/g, (_, k) => v[k]);
 
   async function envoyer(fichier) {
@@ -76,6 +95,54 @@
     return fetch(form.action, { method: 'POST', body: donnees });
   }
 
+  async function afficherResultat(envoi) {  // un seul ticket : on affiche directement son resultat
+    document.getElementById('choix').hidden = true;
+    document.getElementById('morceaux').hidden = true;
+    document.getElementById('lecture').hidden = false;
+    try {
+      const rep = await envoi();
+      if (rep.redirected) { window.location = rep.url; return; }
+      document.open(); document.write(await rep.text()); document.close();  // page avec le message d'erreur
+    } catch (e) {
+      document.getElementById('lecture').hidden = true;
+      document.getElementById('choix').hidden = false;
+      alert(T.reseau);
+    }
+  }
+
+  // ticket long : plusieurs photos du meme ticket, envoyees ensemble
+  const morceaux = [];
+  function majMorceaux() {
+    document.getElementById('ajout-morceau').textContent = morceaux.length ? T.suivante : T.premiere;
+    const bouton = document.getElementById('lire-morceaux');
+    bouton.textContent = remplir(T.lire, { n: morceaux.length });
+    bouton.disabled = morceaux.length < 2;
+    const zone = document.getElementById('vignettes');
+    zone.replaceChildren(...morceaux.map((f, i) => {
+      const img = document.createElement('img');
+      img.src = URL.createObjectURL(f);
+      img.alt = String(i + 1);
+      img.style.cssText = 'width:64px;height:96px;object-fit:cover;border-radius:8px;border:1px solid var(--line)';
+      return img;
+    }));
+  }
+  document.getElementById('long').addEventListener('click', () => {
+    document.getElementById('choix').hidden = true;
+    document.getElementById('morceaux').hidden = false;
+    majMorceaux();
+  });
+  document.querySelectorAll('[data-morceau]').forEach((input) => input.addEventListener('change', async () => {
+    for (const f of input.files) if (morceaux.length < MAX_PHOTOS) morceaux.push(await reduire(f));
+    input.value = '';
+    majMorceaux();
+  }));
+  document.getElementById('lire-morceaux').addEventListener('click', () => afficherResultat(() => {
+    const donnees = new FormData();
+    morceaux.forEach((f) => donnees.append('fichier', f));
+    donnees.append('meme_ticket', '1');
+    return fetch(form.action, { method: 'POST', body: donnees });
+  }));
+
   form.querySelectorAll('input[type=file]').forEach((input) => {
     input.addEventListener('change', async () => {
       const fichiers = [...input.files];
@@ -83,16 +150,8 @@
       document.getElementById('choix').hidden = true;
       document.getElementById('lecture').hidden = false;
 
-      if (fichiers.length === 1) {  // un seul ticket : on affiche directement son resultat
-        try {
-          const rep = await envoyer(fichiers[0]);
-          if (rep.redirected) { window.location = rep.url; return; }
-          document.open(); document.write(await rep.text()); document.close();  // page avec le message d'erreur
-        } catch (e) {
-          document.getElementById('lecture').hidden = true;
-          document.getElementById('choix').hidden = false;
-          alert(T.reseau);
-        }
+      if (fichiers.length === 1) {
+        afficherResultat(() => envoyer(fichiers[0]));
         return;
       }
 

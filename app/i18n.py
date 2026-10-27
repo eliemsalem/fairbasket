@@ -119,8 +119,8 @@ EN = {
     "Ticket papier ou PDF reçu par e-mail : n'importe quelle enseigne.": "Paper receipt or PDF received by email: any store.",
     "Prendre une photo": "Take a photo", "Posez le ticket à plat, bien éclairé": "Lay the receipt flat, in good light",
     "Choisir un PDF ou une photo": "Choose a PDF or a photo", "Envoyer": "Send",
-    "Le ticket est lu par une IA pour en extraire les produits et les prix. Les numéros de carte ne sont jamais conservés.":
-        "The receipt is read by an AI to extract the products and prices. Card numbers are never kept.",
+    "Le ticket est lu pour en extraire les produits et les prix (par une IA quand son format n'est pas encore connu). Les numéros de carte ne sont jamais conservés.":
+        "The receipt is read to extract the products and prices (by an AI when its format is not known yet). Card numbers are never kept.",
     "Lecture du ticket…": "Reading the receipt…",
     "Vous pouvez en sélectionner plusieurs.": "You can select several.",
     "Voir mon tableau de bord": "See my dashboard",
@@ -183,6 +183,23 @@ EN = {
     "Estimation : les formats peuvent différer d'une enseigne à l'autre (ouvrez une enseigne pour voir le produit retenu). Le pourcentage compare les mêmes produits à ce que vous payez aujourd'hui.":
         "Estimate: sizes may differ between stores (open a store to see the product used). The percentage compares the same products with what you pay today.",
     "Touchez un prix pour voir le ticket.": "Tap a price to see the receipt.",
+    "Plusieurs morceaux d'un même ticket : seulement des photos.": "Several parts of one receipt: photos only.",
+    "{n} magasin(s) : adresse à confirmer": "{n} store(s): address to confirm",
+    "Elle n'est pas imprimée sur le ticket : une confirmation suffit par magasin.":
+        "It is not printed on the receipt: one confirmation per store is enough.",
+    "Adresse vérifiée": "Address verified", "Adresse du magasin à confirmer": "Store address to confirm",
+    "Elle n'est pas imprimée sur ce ticket. Est-ce bien ce magasin ?":
+        "It is not printed on this receipt. Is this the right store?",
+    "Elle n'est pas imprimée sur ce ticket. Indiquez-la pour comparer les prix du bon magasin.":
+        "It is not printed on this receipt. Enter it to compare prices for the right store.",
+    "Adresse": "Address", "12 rue de Flandre": "12 rue de Flandre", "Code postal": "Postcode", "Ville": "City",
+    "Confirmer l'adresse": "Confirm the address",
+    "Ticket trop long ? Plusieurs photos": "Receipt too long? Several photos", "Ticket long": "Long receipt",
+    "Photographiez le ticket en plusieurs fois, du haut vers le bas, en laissant une ou deux lignes en commun entre deux photos.":
+        "Photograph the receipt in several parts, from top to bottom, keeping one or two lines in common between photos.",
+    "Choisir dans la galerie": "Choose from gallery",
+    "Prendre la première photo (le haut)": "Take the first photo (the top)",
+    "Prendre la photo suivante": "Take the next photo", "Lire le ticket ({n} photos)": "Read the receipt ({n} photos)",
     "Voir le ticket du {date} chez {enseigne}": "See the receipt from {date} at {enseigne}",
     "Essayez": "Try", "Autour de vous": "Near you", "promo": "deal",
     "Prix relevés dans les magasins du quartier ces 90 derniers jours.": "Prices reported in nearby stores over the last 90 days.",

@@ -5,6 +5,7 @@ from decimal import Decimal
 from typing import Optional
 
 from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Integer, Numeric, String, UniqueConstraint
+from sqlalchemy import false as sa_false
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .db import Base
@@ -102,6 +103,8 @@ class Receipt(Base):
 
     source: Mapped[str] = mapped_column(String(5))  # "pdf" ou "photo"
     importe: Mapped[bool] = mapped_column(Boolean, default=False)  # historique importe : hors quota mensuel
+    # adresse du magasin imprimee sur le ticket, ou confirmee par la personne (comme le total, elle se valide)
+    adresse_ok: Mapped[bool] = mapped_column(Boolean, default=False, server_default=sa_false())
     fichier_nom: Mapped[str] = mapped_column(String(200))
     file_sha256: Mapped[str] = mapped_column(String(64))
     fichier_chemin: Mapped[Optional[str]] = mapped_column(String(300))
