@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block title %}FairBasket — {{ u.prenom }}{% endblock %}
+{% block body %}
+<main class="screen admin" style="max-width:900px">
+  <div class="topbar"><a href="/admin">← Administration</a></div>
+  <h1>{{ u.prenom }}</h1>
+  <p class="small">{{ u.email }} · inscrit le {{ u.created_at.strftime('%d/%m/%Y') }} · {{ "actif" if u.statut == "actif" else "en attente" }}{% if u.activated_at %} depuis le {{ u.activated_at.strftime('%d/%m/%Y') }}{% endif %} · langue {{ u.lang }} · partage des prix {{ "oui" if u.partage_consent else "non" }}</p>
+
+  {% if avis %}
+  <section>
+    <h2>Ses avis</h2>
+    {% for a in avis %}<div class="card"><span class="small">{{ a.quand.strftime('%d/%m %H:%M') }} · {{ nom_page(a.page) }}</span><br><span style="white-space:pre-wrap">{{ a.message }}</span></div>{% endfor %}
+  </section>
+  {% endif %}
+
+  <section>
+    <h2>Ses tickets ({{ recus|length }} derniers)</h2>
+    {% if recus %}
+    <div class="defile"><table>
+      <thead><tr><th>Ajouté</th><th>Source</th><th>Lu par</th><th>Résultat</th></tr></thead>
+      <tbody>{% for r in recus %}
+        <tr><td>{{ r.created_at.strftime('%d/%m %H:%M') }}</td><td>{{ r.source }}{% if r.importe %} (historique){% endif %}</td><td class="small">{{ r.modele or "—" }}</td>
+          <td>{{ {"ok": "total juste", "ecart": "à vérifier", "illisible": "illisible", "erreur": "erreur"}.get(r.statut, r.statut) }}</td></tr>
+      {% endfor %}</tbody>
+    </table></div>
+    <p class="small">Le contenu des tickets reste privé : seul le résultat de la lecture est montré ici.</p>
+    {% else %}<p class="lede">Aucun ticket.</p>{% endif %}
+  </section>
+
+  <section>
+    <h2>Son parcours</h2>
+    <div class="defile"><table><tbody>
+      {% for e in evenements %}
+        <tr><td style="white-space:nowrap">{{ e.quand.strftime('%d/%m %H:%M') }}</td>
+          <td>{% if e.type == "page" %}{{ nom_page(e.page) }}{% else %}<span class="badge">{{ e.type.replace("ticket_", "ticket ") }}</span>{% endif %}</td>
+          <td class="small">{{ e.detail or "" }}</td></tr>
+      {% else %}<tr><td>Pas encore de visite.</td></tr>{% endfor %}
+    </tbody></table></div>
+  </section>
+</main>
+{% endblock %}

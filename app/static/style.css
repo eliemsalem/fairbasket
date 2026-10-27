@@ -89,3 +89,15 @@ th{font-size:12px;color:var(--muted);font-weight:600}
 .ligne-ticket{display:flex;align-items:center;gap:10px;font-size:14px;color:var(--fg);text-decoration:none;min-height:40px;border-radius:8px;margin:0 -6px;padding:0 6px}
 .ligne-ticket:hover,.ligne-ticket:focus-visible{background:var(--soft)}
 .row:target{background:var(--soft);outline:2px solid var(--fg);outline-offset:-2px;border-radius:6px;padding-left:8px;padding-right:8px}
+/* administration */
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+.kpis .card{display:flex;flex-direction:column;gap:4px}
+.kpis strong{font-size:26px}
+.defile{overflow-x:auto;-webkit-overflow-scrolling:touch}
+.defile table th,.defile table td{padding:8px 10px;text-align:left;white-space:nowrap;border-bottom:1px solid var(--line)}
+.etape{display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid var(--line);font-size:14px}
+.etape .barre{width:120px;height:8px;border-radius:4px;background:var(--line);overflow:hidden;flex:none}
+.etape .barre span{display:block;height:100%;background:var(--fg)}
+.deux{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:24px}
+.admin section{display:flex;flex-direction:column;gap:8px}
+.admin h3{font-size:14px;margin:0}

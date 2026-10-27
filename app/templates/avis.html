@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}FairBasket — {{ _("Un souci ? Une idée ?") }}{% endblock %}
+{% block body %}
+<main class="screen">
+  <div class="topbar"><a href="{{ retour }}">← {{ _("Retour") }}</a></div>
+  {% if merci %}
+    <h1>{{ _("Merci !") }}</h1>
+    <p class="lede">{{ _("Votre message est bien arrivé. Il aide à améliorer FairBasket pour tout le monde.") }}</p>
+    <a class="btn" href="{{ retour }}">{{ _("Continuer") }}</a>
+  {% else %}
+    <h1>{{ _("Un souci ? Une idée ?") }}</h1>
+    <p class="lede">{{ _("Dites-nous ce qui bloque, ce qui manque ou ce qui vous plaît. Quelques mots suffisent.") }}</p>
+    <form method="post" action="/avis" style="gap:14px">
+      <input type="hidden" name="de" value="{{ de }}"><input type="hidden" name="retour" value="{{ retour }}">
+      {% if erreur %}<p class="errors" role="alert">{{ _(erreur) }}</p>{% endif %}
+      <div class="field"><label for="message">{{ _("Votre message") }}</label>
+        <textarea id="message" name="message" rows="6" maxlength="1800" required autofocus style="border:1px solid var(--field);border-radius:12px;padding:12px 14px;font:inherit;color:var(--fg);background:var(--bg);resize:vertical"></textarea></div>
+      {% if not user %}<div class="field"><label for="email">{{ _("Votre e-mail, pour vous répondre (facultatif)") }}</label><input id="email" name="email" type="email" autocomplete="email"></div>{% endif %}
+      <button class="btn" type="submit">{{ _("Envoyer") }}</button>
+    </form>
+  {% endif %}
+</main>
+{% endblock %}

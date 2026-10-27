@@ -9,7 +9,8 @@
   <div id="choix" style="display:flex;flex-direction:column;gap:20px">
     <h1>{{ _("Ajouter un ticket") }}</h1>
     <p class="lede">{{ _("Ticket papier ou PDF reçu par e-mail : n'importe quelle enseigne.") }}</p>
-    {% if erreur %}<p class="errors" role="alert">{{ _(erreur[0], **erreur[1]) }}</p>{% endif %}
+    {% if erreur %}<p class="errors" role="alert">{{ _(erreur[0], **erreur[1]) }}</p>
+    <p class="small" style="margin:-8px 0 0"><a href="/avis?de=/tickets/ajouter&retour=/tickets/ajouter">{{ _("Ça ne marche toujours pas ? Dites-le-nous") }}</a></p>{% endif %}
     <form id="envoi" method="post" action="/tickets" enctype="multipart/form-data" style="gap:12px">
       <label class="big-choice primary">
         <input type="file" name="fichier" accept="image/*" capture="environment" class="visually-hidden">

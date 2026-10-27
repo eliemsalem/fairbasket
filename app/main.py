@@ -13,14 +13,15 @@ from decimal import Decimal
 
 from fastapi import Depends, FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
+from fastapi.concurrency import run_in_threadpool
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
 
-from . import adresses, auth, config, i18n, liste, openprices, panier, stats, tickets
-from .db import get_db, init_db
-from .models import OpenPrice, Product, Receipt, ReceiptItem, ShoppingItem, Store, User, now
+from . import adresses, auth, config, i18n, liste, openprices, panier, stats, suivi, tickets
+from .db import SessionLocal, get_db, init_db
+from .models import Avis, OpenPrice, Product, Receipt, ReceiptItem, ShoppingItem, Store, User, now
 
 APP_DIR = config.ROOT / "app"
 
@@ -43,12 +44,40 @@ async def lifespan(_app):
         openprices.demarrer_synchro_quotidienne()
     if config.ADRESSES_AUTO:
         adresses.demarrer_recherche()
+    with SessionLocal() as db:
+        suivi.purger(db)
     yield
 
 
 app = FastAPI(title="FairBasket", lifespan=lifespan)
 app.mount("/static", StaticFiles(directory=APP_DIR / "static"), name="static")
 templates = Jinja2Templates(directory=APP_DIR / "templates")
+
+
+def _noter_requete(request: Request, type: str, detail: Optional[str] = None) -> None:
+    route = request.scope.get("route")
+    page_ = getattr(route, "path", None) or request.url.path
+    with SessionLocal() as db:
+        user = auth.user_from_session(db, request.cookies.get(auth.SESSION_COOKIE))
+        uid = user.id if user else None
+    suivi.noter(uid, type, page_, detail)
+
+
+@app.middleware("http")
+async def suivre(request: Request, call_next):
+    """Pages vues et erreurs, pour le suivi de l'administration (jamais la recherche ni un contenu)."""
+    try:
+        resp = await call_next(request)
+    except Exception as e:
+        await run_in_threadpool(_noter_requete, request, "erreur", f"{type(e).__name__} : {e}")
+        raise
+    chemin = request.url.path
+    if resp.status_code >= 500:
+        await run_in_threadpool(_noter_requete, request, "erreur", f"HTTP {resp.status_code}")
+    elif (request.method == "GET" and resp.status_code < 400 and not chemin.startswith(suivi.IGNOREES)
+          and "fragment" not in request.query_params):
+        await run_in_threadpool(_noter_requete, request, "page")
+    return resp
 
 COULEURS = {"Carrefour": "#1F5FBF", "Monoprix": "#C2410C", "Naturalia": "#15803D", "Biocoop": "#A16207",
             "Auchan": "#BE185D", "Aldi": "#1E3A8A", "Lidl": "#0050AA"}
@@ -172,10 +201,13 @@ def inscription(
 def _envoyer_lien(request: Request, db: Session, user: User, inscription: bool = False):
     link = auth.create_login_link(db, user)
     if link:
-        if not auth.send_login_email(user, link):
+        envoye = auth.send_login_email(user, link)
+        if not envoye:
             auth.annuler_lien(db, link)
+        suivi.noter(user.id, "connexion", "/connexion", "lien envoyé" if envoye else "e-mail non envoyé")
     else:
         log.info("Lien non envoyé au compte %s : limite de liens par heure atteinte", user.id)
+        suivi.noter(user.id, "connexion", "/connexion", "limite de liens par heure atteinte")
     # a la connexion, meme page dans tous les cas : on ne revele pas si un compte existe
     return page(request, "lien_envoye.html", email=user.email, inscription=inscription)
 
@@ -194,6 +226,8 @@ def connexion(request: Request, email: str = Form(""), db: Session = Depends(get
     if user and user.statut == "actif":
         return _envoyer_lien(request, db, user)
     log.info("Demande de lien pour un compte %s : rien envoyé", "en liste d'attente" if user else "inexistant")
+    suivi.noter(user.id if user else None, "connexion", "/connexion",
+                "compte en liste d'attente" if user else "e-mail inconnu")
     return page(request, "lien_envoye.html", email=email)
 
 
@@ -201,6 +235,7 @@ def connexion(request: Request, email: str = Form(""), db: Session = Depends(get
 def auth_lien(request: Request, token: str, db: Session = Depends(get_db)):
     user = auth.use_login_token(db, token)
     if user is None:
+        suivi.noter(None, "connexion", "/auth/{token}", "lien expiré ou déjà utilisé")
         return page(request, "lien_invalide.html", status_code=400)
     sid = auth.create_session(db, user)
     resp = RedirectResponse("/accueil" if user.onboarded else "/presentation", status_code=303)
@@ -458,10 +493,15 @@ def ticket_envoi(request: Request, fichier: list[UploadFile] = File(...), import
             # import d'historique (hors quota) : reserve a l'administration pour l'instant
             res = tickets.enregistrer_ticket(db, user, contenus[0], fichiers[0].filename or "ticket", media_type,
                                              importe=bool(importe) and auth.is_admin(user), suite=contenus[1:])
+            suivi.noter(user.id, "ticket_doublon" if res.doublon else f"ticket_{res.receipt.statut}", "/tickets",
+                        f"{'PDF' if media_type == 'application/pdf' else 'photo'}"
+                        f"{f' en {len(contenus)} morceaux' if len(contenus) > 1 else ''} · {res.receipt.modele or ''}")
             suffixe = "?doublon=1" if res.doublon else ""
             return RedirectResponse(f"/tickets/{res.receipt.id}{suffixe}", status_code=303)
         except tickets.TicketRefuse as e:
             erreur = (e.cle, e.valeurs)
+    if erreur:
+        suivi.noter(user.id, "ticket_refuse", "/tickets", erreur[0].format(**erreur[1]))
     return page(request, "ticket_ajout.html", status_code=400, erreur=erreur,
                 utilises=tickets.tickets_ce_mois(db, user), maximum=config.MAX_TICKETS_PAR_MOIS)
 
@@ -517,12 +557,60 @@ def ticket_supprimer(receipt_id: int, user: User = Depends(require_user), db: Se
 
 # --- Administration : liste d'attente --------------------------------------
 
+# --- Avis ---------------------------------------------------------------------
+
+def _retour_sur(chemin: str) -> str:
+    return chemin if chemin.startswith("/") and not chemin.startswith("//") else "/accueil"
+
+
+@app.get("/avis", response_class=HTMLResponse)
+def avis_form(request: Request, de: str = "", retour: str = "/accueil", merci: int = 0,
+              user: Optional[User] = Depends(current_user)):
+    return page(request, "avis.html", de=de[:80], retour=_retour_sur(retour), merci=merci, user=user)
+
+
+@app.post("/avis")
+def avis_envoi(request: Request, message: str = Form(""), de: str = Form(""), retour: str = Form("/accueil"),
+               email: str = Form(""), user: Optional[User] = Depends(current_user), db: Session = Depends(get_db)):
+    message = message.strip()[:1800]
+    if not message:
+        return page(request, "avis.html", de=de[:80], retour=_retour_sur(retour), merci=0, user=user,
+                    erreur="Écrivez quelques mots.", status_code=400)
+    if user is None and email.strip():  # pas connecte (bloque a la connexion) : de quoi lui repondre
+        message = f"[{email.strip()[:120]}] {message}"
+    db.add(Avis(user_id=user.id if user else None, page=de[:80] or None, message=message))
+    db.commit()
+    log.info("Nouvel avis reçu (page %s)", de or "—")
+    return RedirectResponse(f"/avis?merci=1&retour={_retour_sur(retour)}", status_code=303)
+
+
+# --- Administration --------------------------------------------------------------
+
 @app.get("/admin", response_class=HTMLResponse)
 def admin(request: Request, _: User = Depends(require_admin), db: Session = Depends(get_db)):
     attente = db.scalars(select(User).where(User.statut == "attente").order_by(User.created_at)).all()
-    actifs = db.scalars(select(User).where(User.statut == "actif").order_by(User.created_at)).all()
-    return page(request, "admin.html", attente=attente, actifs=actifs,
+    return page(request, "admin.html", attente=attente, s=suivi.tableau(db), nom_page=suivi.nom_page,
                 open_prices=(db.scalar(select(func.count()).select_from(OpenPrice)), openprices.derniere_synchro(db)))
+
+
+@app.get("/admin/utilisateurs/{user_id}", response_class=HTMLResponse)
+def admin_utilisateur(request: Request, user_id: int, _: User = Depends(require_admin), db: Session = Depends(get_db)):
+    u = db.get(User, user_id)
+    if u is None:
+        raise HTTPException(status_code=404)
+    recus = db.scalars(select(Receipt).where(Receipt.user_id == u.id).order_by(Receipt.created_at.desc()).limit(30)).all()
+    return page(request, "admin_utilisateur.html", u=u, evenements=suivi.parcours(db, u), recus=recus,
+                nom_page=suivi.nom_page, avis=db.scalars(select(Avis).where(Avis.user_id == u.id)
+                                                         .order_by(Avis.quand.desc())).all())
+
+
+@app.post("/admin/avis/{avis_id}/traite")
+def admin_avis_traite(avis_id: int, _: User = Depends(require_admin), db: Session = Depends(get_db)):
+    a = db.get(Avis, avis_id)
+    if a is not None:
+        a.traite = not a.traite
+        db.commit()
+    return RedirectResponse("/admin#avis", status_code=303)
 
 
 @app.post("/admin/open-prices")

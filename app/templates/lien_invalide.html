@@ -5,5 +5,6 @@
   <h1>{{ _("Ce lien ne fonctionne plus") }}</h1>
   <p class="lede">{{ _("Un lien de connexion est valable 15 minutes et ne sert qu'une seule fois. Demandez-en un nouveau.") }}</p>
   <div class="push"><a class="btn" href="/connexion">{{ _("Recevoir un nouveau lien") }}</a></div>
+  <p class="small center"><a href="/avis?de=/auth/{token}&retour=/connexion">{{ _("Vous n'arrivez pas à vous connecter ? Dites-le-nous") }}</a></p>
 </main>
 {% endblock %}

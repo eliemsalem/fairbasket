@@ -69,6 +69,7 @@
     </form>
   </details>
   {% if r.remarques %}<p class="small">{{ _("Note de lecture : {note}", note=r.remarques) }}</p>{% endif %}
+  <p class="small center" style="margin:0"><a href="/avis?de=/tickets/{receipt_id}&retour=/tickets/{{ r.id }}">{{ _("Un problème avec ce ticket ? Dites-le-nous") }}</a></p>
   <form method="post" action="/tickets/{{ r.id }}/supprimer" onsubmit="return confirm({{ _('Supprimer ce ticket ?')|tojson|forceescape }})">
     <button type="submit" class="btn ghost" style="color:var(--danger);border-color:var(--danger)">{{ _("Supprimer ce ticket") }}</button>
   </form>

@@ -40,6 +40,8 @@ class User(Base):
     sessions: Mapped[list["UserSession"]] = relationship(back_populates="user", cascade="all, delete-orphan")
     receipts: Mapped[list["Receipt"]] = relationship(cascade="all, delete-orphan")
     liste: Mapped[list["ShoppingItem"]] = relationship(cascade="all, delete-orphan", order_by="ShoppingItem.id")
+    evenements: Mapped[list["Evenement"]] = relationship(cascade="all, delete-orphan")
+    avis: Mapped[list["Avis"]] = relationship(cascade="all, delete-orphan")
 
 
 class LoginToken(Base):
@@ -238,3 +240,32 @@ class ZonePrix(Base):
     lat: Mapped[float] = mapped_column(Float)  # centre arrondi au dixieme de degre
     lon: Mapped[float] = mapped_column(Float)
     copie_le: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
+
+
+class Evenement(Base):
+    """Journal d'utilisation pour l'administration : pages vues, tickets, erreurs. Garde 180 jours.
+
+    page : le modele de l'adresse (« /tickets/{receipt_id} »), jamais une recherche ou le contenu d'un ticket."""
+
+    __tablename__ = "evenements"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    quand: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now, index=True)
+    # page, ticket_ok, ticket_ecart, ticket_illisible, ticket_refuse, erreur
+    type: Mapped[str] = mapped_column(String(20), index=True)
+    page: Mapped[Optional[str]] = mapped_column(String(80))
+    detail: Mapped[Optional[str]] = mapped_column(String(300))
+
+
+class Avis(Base):
+    """Un souci ou une idee envoye depuis l'application."""
+
+    __tablename__ = "avis"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    quand: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
+    page: Mapped[Optional[str]] = mapped_column(String(80))
+    message: Mapped[str] = mapped_column(String(2000))
+    traite: Mapped[bool] = mapped_column(Boolean, default=False, server_default=sa_false())

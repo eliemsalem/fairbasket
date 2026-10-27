@@ -203,6 +203,16 @@ EN = {
     "Magasins autour de {ville} (zone par défaut) : elle s'adapte toute seule à vos magasins dès votre premier ticket.":
         "Stores around {ville} (default area): it adapts to your stores on its own from your first receipt.",
     "Autour de moi": "Near me",
+    "Un souci ? Une idée ?": "A problem? An idea?", "Merci !": "Thank you!", "Continuer": "Continue",
+    "Votre message est bien arrivé. Il aide à améliorer FairBasket pour tout le monde.":
+        "Your message has arrived. It helps make FairBasket better for everyone.",
+    "Dites-nous ce qui bloque, ce qui manque ou ce qui vous plaît. Quelques mots suffisent.":
+        "Tell us what's not working, what's missing or what you like. A few words are enough.",
+    "Votre message": "Your message", "Écrivez quelques mots.": "Write a few words.",
+    "Votre e-mail, pour vous répondre (facultatif)": "Your e-mail, so we can reply (optional)",
+    "Ça ne marche toujours pas ? Dites-le-nous": "Still not working? Let us know",
+    "Un problème avec ce ticket ? Dites-le-nous": "A problem with this receipt? Let us know",
+    "Vous n'arrivez pas à vous connecter ? Dites-le-nous": "Can't sign in? Let us know",
     "Installer l'application": "Install the app", "Installer FairBasket sur votre téléphone": "Install FairBasket on your phone",
     "Touchez le bouton Partager, puis « Sur l'écran d'accueil ».": "Tap the Share button, then “Add to Home Screen”.",
     "Une icône sur l'écran d'accueil, comme une vraie application.": "An icon on your home screen, like a real app.",

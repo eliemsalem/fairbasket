@@ -1,28 +1,113 @@
 {% extends "base.html" %}
 {% block title %}FairBasket — Administration{% endblock %}
 {% block body %}
-<main class="screen">
+<main class="screen admin" style="max-width:1100px">
   <div class="topbar"><a href="/accueil">← Accueil</a></div>
-  <a class="btn ghost" href="/tickets/importer">Importer un historique de tickets</a>
-  <div class="card" style="display:flex;justify-content:space-between;align-items:center;gap:12px">
-    <span class="small"><strong>Open Prices</strong> : {{ open_prices[0] }} prix{% if open_prices[1] %}, copiés le {{ open_prices[1].strftime('%d/%m/%Y à %H:%M') }}{% endif %}</span>
-    <form method="post" action="/admin/open-prices"><button class="btn ghost" style="height:36px;padding:0 12px;width:auto" type="submit">Actualiser</button></form>
+  <h1>Administration</h1>
+
+  <div class="kpis">
+    <div class="card"><span class="small">Inscrits</span><strong>{{ s.chiffres.inscrits }}</strong></div>
+    <div class="card"><span class="small">En attente</span><strong>{{ s.chiffres.attente }}</strong></div>
+    <div class="card"><span class="small">Venus ces 7 jours</span><strong>{{ s.chiffres.actifs_7j }}</strong></div>
+    <div class="card"><span class="small">Tickets ajoutés</span><strong>{{ s.chiffres.tickets }}</strong><span class="small">dont {{ s.chiffres.tickets_7j }} ces 7 jours</span></div>
+    <a class="card" href="#avis" style="text-decoration:none;color:inherit"><span class="small">Avis à lire</span><strong>{{ s.chiffres.avis }}</strong></a>
   </div>
-  <form method="post" action="/admin/bio"><button class="btn ghost" type="submit">Marquer bio les achats faits dans les magasins 100 % bio</button></form>
-  <form method="post" action="/admin/magasins"><button class="btn ghost" type="submit">Fusionner les magasins en double</button></form>
-  <h1>Liste d'attente</h1>
-  {% if attente %}
-  <table>
-    <thead><tr><th>Prénom</th><th>E-mail</th><th>Inscrit le</th><th></th></tr></thead>
-    <tbody>
-    {% for u in attente %}
-      <tr><td>{{ u.prenom }}</td><td>{{ u.email }}</td><td>{{ u.created_at.strftime('%d/%m/%Y') }}</td>
-        <td><form method="post" action="/admin/activer/{{ u.id }}"><button class="btn" style="height:36px;padding:0 12px;width:auto" type="submit">Accepter</button></form></td></tr>
-    {% endfor %}
-    </tbody>
-  </table>
-  {% else %}<p class="lede">Personne en attente.</p>{% endif %}
-  <h2>Comptes actifs ({{ actifs|length }})</h2>
-  <table><tbody>{% for u in actifs %}<tr><td>{{ u.prenom }}</td><td>{{ u.email }}</td></tr>{% endfor %}</tbody></table>
+
+  <section>
+    <h2>Liste d'attente</h2>
+    {% if attente %}
+    <div class="defile"><table>
+      <thead><tr><th>Prénom</th><th>E-mail</th><th>Inscrit le</th><th></th></tr></thead>
+      <tbody>
+      {% for u in attente %}
+        <tr><td>{{ u.prenom }}</td><td>{{ u.email }}</td><td>{{ u.created_at.strftime('%d/%m/%Y') }}</td>
+          <td><form method="post" action="/admin/activer/{{ u.id }}"><button class="btn" style="height:36px;padding:0 12px;width:auto" type="submit">Accepter</button></form></td></tr>
+      {% endfor %}
+      </tbody>
+    </table></div>
+    {% else %}<p class="lede">Personne en attente.</p>{% endif %}
+  </section>
+
+  <section>
+    <h2>Où les gens s'arrêtent</h2>
+    <div class="entonnoir">
+      {% set total = s.entonnoir[0][1] or 1 %}
+      {% for nom, n in s.entonnoir %}
+        <div class="etape"><span class="grow">{{ nom }}</span><span class="barre"><span style="width:{{ (100 * n / total)|round|int }}%"></span></span><strong class="mono">{{ n }}</strong></div>
+      {% endfor %}
+    </div>
+  </section>
+
+  <section>
+    <h2>Utilisateurs</h2>
+    <div class="defile"><table>
+      <thead><tr><th>Prénom</th><th>E-mail</th><th>Inscrit</th><th>Statut</th><th>Dernière visite</th><th>Jours venus</th><th>Dernière page</th><th>Tickets</th><th>OK</th><th>À vérifier</th><th>Illisibles</th><th>Refusés</th></tr></thead>
+      <tbody>
+      {% for l in s.utilisateurs %}
+        <tr>
+          <td><a href="/admin/utilisateurs/{{ l.u.id }}">{{ l.u.prenom }}</a></td><td class="small">{{ l.u.email }}</td>
+          <td>{{ l.u.created_at.strftime('%d/%m') }}</td><td>{{ "actif" if l.u.statut == "actif" else "attente" }}</td>
+          <td>{{ l.vu.strftime('%d/%m %H:%M') if l.vu else "jamais" }}</td><td class="mono">{{ l.jours }}</td><td>{{ l.page }}</td>
+          <td class="mono"><strong>{{ l.tickets }}</strong></td><td class="mono">{{ l.ok }}</td>
+          <td class="mono">{{ l.a_verifier or "" }}</td><td class="mono">{{ l.illisibles or "" }}</td><td class="mono">{{ l.refuses or "" }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table></div>
+  </section>
+
+  <div class="deux">
+    <section>
+      <h2>Pages les plus vues (7 jours)</h2>
+      {% for nom, n in s.pages %}<div class="etape"><span class="grow">{{ nom }}</span><strong class="mono">{{ n }}</strong></div>
+      {% else %}<p class="lede">Pas encore de visite.</p>{% endfor %}
+    </section>
+    <section>
+      <h2>Tickets ajoutés</h2>
+      {% set libelles = {"ticket_ok": "Total juste", "ticket_ecart": "Total à vérifier", "ticket_illisible": "Illisibles", "ticket_erreur": "En erreur", "ticket_refuse": "Refusés", "ticket_doublon": "Déjà ajoutés"} %}
+      {% for t, n in s.resultats.most_common() %}<div class="etape"><span class="grow">{{ libelles.get(t, t) }}</span><strong class="mono">{{ n }}</strong></div>
+      {% else %}<p class="lede">Pas encore de ticket depuis le début du suivi.</p>{% endfor %}
+      <h3 style="margin-top:12px">Lus par</h3>
+      {% for nom, n in s.lectures %}<div class="etape"><span class="grow">{{ nom }}</span><strong class="mono">{{ n }}</strong></div>{% endfor %}
+    </section>
+  </div>
+
+  <section>
+    <h2>Pourquoi ça bloque</h2>
+    {% for (type, detail), n in s.blocages %}
+      <div class="etape"><span class="badge">{{ {"ticket_refuse": "ticket", "erreur": "erreur", "connexion": "connexion"}.get(type, type) }}</span><span class="grow">{{ detail }}</span><strong class="mono">{{ n }}</strong></div>
+    {% else %}<p class="lede">Aucun blocage noté.</p>{% endfor %}
+    {% if s.derniers_problemes %}
+    <h3 style="margin-top:12px">Derniers problèmes</h3>
+    <div class="defile"><table><tbody>
+      {% for e, prenom in s.derniers_problemes %}
+        <tr><td>{{ e.quand.strftime('%d/%m %H:%M') }}</td><td>{% if e.user_id %}<a href="/admin/utilisateurs/{{ e.user_id }}">{{ prenom }}</a>{% else %}—{% endif %}</td><td>{{ nom_page(e.page) }}</td><td class="small">{{ e.detail or e.type }}</td></tr>
+      {% endfor %}
+    </tbody></table></div>
+    {% endif %}
+  </section>
+
+  <section id="avis">
+    <h2>Avis</h2>
+    {% for a, prenom in s.avis %}
+      <div class="card" style="display:flex;flex-direction:column;gap:6px;{{ 'opacity:.55' if a.traite }}">
+        <span class="small">{{ a.quand.strftime('%d/%m %H:%M') }} · {% if a.user_id %}<a href="/admin/utilisateurs/{{ a.user_id }}">{{ prenom }}</a>{% else %}non connecté{% endif %} · {{ nom_page(a.page) }}</span>
+        <span style="white-space:pre-wrap">{{ a.message }}</span>
+        <form method="post" action="/admin/avis/{{ a.id }}/traite"><button class="chip" type="submit">{{ "Remettre à lire" if a.traite else "Traité" }}</button></form>
+      </div>
+    {% else %}<p class="lede">Pas encore d'avis.</p>{% endfor %}
+  </section>
+
+  <section>
+    <h2>Outils</h2>
+    <a class="btn ghost" href="/tickets/importer">Importer un historique de tickets</a>
+    <div class="card" style="display:flex;justify-content:space-between;align-items:center;gap:12px">
+      <span class="small"><strong>Open Prices</strong> : {{ open_prices[0] }} prix{% if open_prices[1] %}, copiés le {{ open_prices[1].strftime('%d/%m/%Y à %H:%M') }}{% endif %}</span>
+      <form method="post" action="/admin/open-prices"><button class="btn ghost" style="height:36px;padding:0 12px;width:auto" type="submit">Actualiser</button></form>
+    </div>
+    <form method="post" action="/admin/bio"><button class="btn ghost" type="submit">Marquer bio les achats faits dans les magasins 100 % bio</button></form>
+    <form method="post" action="/admin/magasins"><button class="btn ghost" type="submit">Fusionner les magasins en double</button></form>
+  </section>
+  <p class="small">Suivi gardé 180 jours : pages vues (sans les recherches), résultats des tickets, connexions et erreurs. Il est supprimé avec le compte.</p>
 </main>
 {% endblock %}
