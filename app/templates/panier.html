@@ -2,7 +2,7 @@
 {% block title %}FairBasket — {{ _("Comparer mon panier") }}{% endblock %}
 {% block body %}
 <main class="screen with-nav" style="gap:18px">
-  <div class="topbar"><a href="/liste" aria-label="{{ _('Retour') }}" style="width:44px;height:44px;display:flex;align-items:center"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></a></div>
+  <div class="topbar"><a href="{{ '/comparer' if habituel else '/liste' }}" aria-label="{{ _('Retour') }}" style="width:44px;height:44px;display:flex;align-items:center"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></a></div>
   <h1 style="font-size:24px">{{ _("Combien coûte mon panier habituel ?") if habituel else _("Combien coûte ma liste ?") }}</h1>
 
   <div id="resultat" aria-live="polite">
@@ -14,13 +14,13 @@
     {% else %}{% include "_panier_resultats.html" %}{% endif %}
   </div>
 </main>
-{% with actif='liste' %}{% include "_nav.html" %}{% endwith %}
+{% with actif='comparer' if habituel else 'liste' %}{% include "_nav.html" %}{% endwith %}
 {% if calcul_differe %}
 <script>
   // la page s'affiche tout de suite ; le calcul (quelques secondes la premiere fois) arrive ensuite
-  fetch('/liste/comparer?fragment=1').then((r) => r.text()).then((html) => {
+  fetch('/liste/comparer?fragment=1&habituel={{ 1 if habituel else 0 }}').then((r) => r.text()).then((html) => {
     document.getElementById('resultat').innerHTML = html;
-  }).catch(() => { window.location = '/liste/comparer?fragment=0&direct=1'; });
+  }).catch(() => { window.location = '/liste/comparer?fragment=0&direct=1&habituel={{ 1 if habituel else 0 }}'; });
 </script>
 {% endif %}
 {% endblock %}

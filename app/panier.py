@@ -69,9 +69,13 @@ def enseigne_du_magasin(nom: str) -> str:
     return reconnaitre(nom)[0] or nom.strip()
 
 
-def comparer_panier(db: Session, user: User, articles: list, tickets: list) -> dict:
-    """articles : [(nom, product_id ou None)]. Renvoie le total par enseigne et le panier malin."""
+def comparer_panier(db: Session, user: User, articles: list, tickets: list, poids: Optional[list] = None) -> dict:
+    """articles : [(nom, product_id ou None)] ; poids : combien de fois chaque article est achete (1 par defaut).
+    Renvoie le total par enseigne, l'ecart avec ce que la personne paie aujourd'hui et le panier malin."""
     derniers, _, _ = _derniers_prix(tickets)
+    poids = poids or [1] * len(articles)
+    # prix de reference : le dernier prix paye par la personne, quelle que soit l'enseigne
+    reference = {i: max(derniers[pid].values())[1] for i, (_, pid) in enumerate(articles) if pid in derniers}
     ouverts = db.scalars(select(OpenPrice).order_by(OpenPrice.jour.desc())).all()
 
     familles = {p.id: p.famille for p in db.scalars(select(Product).where(
@@ -110,11 +114,20 @@ def comparer_panier(db: Session, user: User, articles: list, tickets: list) -> d
     n = len(articles)
     enseignes = []
     for enseigne, choix in par_enseigne.items():
+        # ecart sur les memes articles, ponderes par la frequence d'achat : juste meme si l'enseigne n'a pas tout
+        communs = [i for i in choix if i in reference]
+        payes = sum(reference[i] * poids[i] for i in communs)
+        ecart = (sum(choix[i]["prix"] * poids[i] for i in communs) / payes - 1) * 100 if payes else None
         enseignes.append({"enseigne": enseigne, "trouves": len(choix), "total": sum((c["prix"] for c in choix.values()),
                                                                                      Decimal("0")),
+                          "ecart": round(ecart) if ecart is not None else None, "communs": len(communs),
                           "lignes": [(articles[i][0], choix.get(i)) for i in range(n)]})
-    # d'abord les enseignes qui ont le plus d'articles, puis les moins cheres
-    enseignes.sort(key=lambda e: (-e["trouves"], e["total"]))
+    # d'abord les enseignes qui ont au moins la moitie des articles, de la moins chere a la plus chere
+    # (a ecart egal ou inconnu, celle qui a le plus d'articles), puis les autres
+    assez = max(2, (n + 1) // 2) if n > 1 else 1
+    enseignes.sort(key=lambda e: (e["trouves"] < assez, e["ecart"] if e["ecart"] is not None else 1000,
+                                  -e["trouves"], e["total"]))
+    conseil = next((e for e in enseignes if e["trouves"] >= assez and e["ecart"] is not None and e["ecart"] < 0), None)
 
     # panier malin : chaque article la ou il est le moins cher
     malin, total_malin = [], Decimal("0")
@@ -126,5 +139,5 @@ def comparer_panier(db: Session, user: User, articles: list, tickets: list) -> d
             total_malin += prix
         else:
             malin.append((nom, None, None))
-    return {"n": n, "enseignes": enseignes[:6], "malin": malin, "total_malin": total_malin,
+    return {"n": n, "enseignes": enseignes[:6], "conseil": conseil, "malin": malin, "total_malin": total_malin,
             "trouves_malin": sum(1 for _, ou, _ in malin if ou)}

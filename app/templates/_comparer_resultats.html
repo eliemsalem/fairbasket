@@ -7,6 +7,9 @@
       <span style="font-size:14px;opacity:.8">{{ _("Moins cher sur {n} de vos {total} produits achetés dans plusieurs enseignes, au dernier prix payé.", n=c.meilleure[1], total=c.nb_compares) }}</span>
     </div>
     {% endif %}
+    {% if not q and c.produits %}
+    <a class="btn" href="/liste/comparer?habituel=1">{{ _("Où faire mes courses habituelles ?") }}</a>
+    {% endif %}
     {% if not q and c.suggestions %}
     <div style="display:flex;flex-direction:column;gap:8px">
       <span class="small"><strong>{{ _("Essayez") }}</strong></span>

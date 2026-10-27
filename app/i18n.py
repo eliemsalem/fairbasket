@@ -163,7 +163,15 @@ EN = {
     "Combien coûte ma liste ?": "How much is my list?",
     "Ajoutez des articles à votre liste, ou quelques tickets, pour comparer un panier.":
         "Add items to your list, or a few receipts, to compare a basket.",
-    "Vos {n} produits les plus achetés.": "Your {n} most bought products.",
+    "Vos {n} produits les plus achetés, comptés autant de fois que vous les achetez.":
+        "Your {n} most bought products, each counted as often as you buy it.",
+    "Le mieux pour vos courses": "Best for your shopping", "Le mieux pour cette liste": "Best for this list",
+    "Environ {pct} % moins cher que ce que vous payez aujourd'hui, sur {n} produits comparés.":
+        "About {pct}% cheaper than what you pay today, across {n} products compared.",
+    "Vous payez déjà parmi les meilleurs prix relevés pour ces produits.":
+        "You already pay some of the best prices found for these products.",
+    "{pct} % moins cher": "{pct}% cheaper", "{pct} % plus cher": "{pct}% more expensive", "même prix": "same price",
+    "Où faire mes courses habituelles ?": "Where should I do my usual shopping?",
     "Les {n} articles de votre liste.": "The {n} items on your list.",
     "Vos propres prix d'abord, sinon les prix relevés dans le quartier.": "Your own prices first, otherwise prices reported nearby.",
     "Panier malin": "Smart basket",
@@ -172,8 +180,8 @@ EN = {
         "Buying each item where it is cheapest ({n} / {total} items found).",
     "{n} / {total} articles trouvés": "{n} / {total} items found",
     "vos achats · {date}": "your purchases · {date}", "pas trouvé dans cette enseigne": "not found in this store",
-    "Estimation : les formats peuvent différer d'une enseigne à l'autre (ouvrez une enseigne pour voir le produit retenu). Une enseigne avec moins d'articles trouvés paraît moins chère qu'elle ne l'est.":
-        "Estimate: sizes may differ between stores (open a store to see the product used). A store with fewer items found looks cheaper than it is.",
+    "Estimation : les formats peuvent différer d'une enseigne à l'autre (ouvrez une enseigne pour voir le produit retenu). Le pourcentage compare les mêmes produits à ce que vous payez aujourd'hui.":
+        "Estimate: sizes may differ between stores (open a store to see the product used). The percentage compares the same products with what you pay today.",
     "Touchez un prix pour voir le ticket.": "Tap a price to see the receipt.",
     "Voir le ticket du {date} chez {enseigne}": "See the receipt from {date} at {enseigne}",
     "Essayez": "Try", "Autour de vous": "Near you", "promo": "deal",
