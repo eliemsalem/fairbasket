@@ -4,7 +4,7 @@ from datetime import date, datetime, timezone
 from decimal import Decimal
 from typing import Optional
 
-from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Integer, Numeric, String, UniqueConstraint
+from sqlalchemy import Boolean, Date, DateTime, Float, ForeignKey, Integer, Numeric, String, UniqueConstraint
 from sqlalchemy import false as sa_false
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -82,6 +82,9 @@ class Store(Base):
     adresse: Mapped[Optional[str]] = mapped_column(String(200))
     code_postal: Mapped[Optional[str]] = mapped_column(String(10))
     ville: Mapped[Optional[str]] = mapped_column(String(80))
+    # position du magasin : situe ou la personne fait ses courses, pour les prix du quartier
+    lat: Mapped[Optional[float]] = mapped_column(Float)
+    lon: Mapped[Optional[float]] = mapped_column(Float)
 
 
 class Receipt(Base):
@@ -203,7 +206,7 @@ class ShoppingItem(Base):
 class OpenPrice(Base):
     """Prix releve en magasin, copie depuis Open Prices (Open Food Facts, licence ODbL).
 
-    Copie locale des 90 derniers jours autour de la zone choisie, rafraichie chaque jour."""
+    Copie locale des 90 derniers jours autour des zones des utilisateurs, rafraichie chaque jour."""
 
     __tablename__ = "open_prices"
 
@@ -219,4 +222,19 @@ class OpenPrice(Base):
     jour: Mapped[date] = mapped_column(Date, index=True)
     magasin: Mapped[str] = mapped_column(String(120))
     ville: Mapped[Optional[str]] = mapped_column(String(80))
+    lat: Mapped[Optional[float]] = mapped_column(Float)
+    lon: Mapped[Optional[float]] = mapped_column(Float)
     synchronise_le: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
+
+
+class ZonePrix(Base):
+    """Zone dont on copie les prix Open Prices : un carre d'environ 10 km autour des magasins des tickets,
+    ou d'une position « Autour de moi ». Aucun lien vers un utilisateur."""
+
+    __tablename__ = "zones_prix"
+    __table_args__ = (UniqueConstraint("lat", "lon"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    lat: Mapped[float] = mapped_column(Float)  # centre arrondi au dixieme de degre
+    lon: Mapped[float] = mapped_column(Float)
+    copie_le: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))

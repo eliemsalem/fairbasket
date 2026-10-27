@@ -189,7 +189,7 @@ def enregistrer_ticket(db: Session, user: User, data: bytes, fichier_nom: str, m
     statut = "ok" if total is not None and abs(somme - remises - total) <= TOLERANCE else "ecart"
     # adresse absente du ticket : l'app la cherche elle-meme, la personne n'a rien a saisir
     trouvee = False
-    if store is not None and config.ADRESSES_AUTO and not (store.adresse or store.code_postal):
+    if store is not None and config.ADRESSES_AUTO and store.lat is None:
         from .adresses import completer
         trouvee = completer(db, store)
     receipt = Receipt(
@@ -259,8 +259,12 @@ def confirmer_adresse(db: Session, receipt: Receipt, adresse: str, code_postal: 
     if receipt.store is not None:
         for champ, valeur, taille in (("adresse", adresse, 200), ("code_postal", code_postal, 10), ("ville", ville, 80)):
             valeur = " ".join((valeur or "").split())[:taille]
-            if valeur:
+            if valeur and valeur != getattr(receipt.store, champ):
                 setattr(receipt.store, champ, valeur)
+                receipt.store.lat = receipt.store.lon = None  # nouvelle adresse : nouvelle position
+        if config.ADRESSES_AUTO and receipt.store.lat is None:
+            from .adresses import completer
+            completer(db, receipt.store)
     # une seule confirmation par magasin : ses autres tickets sont valides aussi
     for r in db.scalars(select(Receipt).where(Receipt.user_id == receipt.user_id, Receipt.store_id == receipt.store_id)):
         r.adresse_ok = True

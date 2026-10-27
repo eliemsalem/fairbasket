@@ -38,6 +38,24 @@
   champ.addEventListener('input', () => { clearTimeout(minuteur); minuteur = setTimeout(() => chercher(champ.value), 250); });
   champ.form.addEventListener('submit', (e) => { e.preventDefault(); chercher(champ.value); });
   zone.addEventListener('click', (e) => {
+    const ici = e.target.closest('[data-autour-de-moi]');
+    if (ici) {
+      // une seule fois : la position reste sur ce telephone (cookie), arrondie a environ 1 km
+      if (!navigator.geolocation) { alert({{ _("Votre téléphone ne donne pas sa position.")|tojson }}); return; }
+      ici.disabled = true;
+      navigator.geolocation.getCurrentPosition((pos) => {
+        const f = document.createElement('form');
+        f.method = 'post'; f.action = '/position';
+        const champs = {lat: pos.coords.latitude.toFixed(2), lon: pos.coords.longitude.toFixed(2),
+                        retour: location.pathname + location.search};
+        for (const [k, v] of Object.entries(champs)) {
+          const i = document.createElement('input'); i.type = 'hidden'; i.name = k; i.value = v; f.appendChild(i);
+        }
+        document.body.appendChild(f); f.submit();
+      }, () => { ici.disabled = false; alert({{ _("Position refusée : les prix restent ceux autour de vos magasins.")|tojson }}); },
+      {timeout: 10000, maximumAge: 600000});
+      return;
+    }
     const s = e.target.closest('[data-suggestion]');
     if (!s) return;
     e.preventDefault(); champ.value = s.dataset.suggestion; chercher(champ.value);

@@ -59,6 +59,7 @@ def _euros(v) -> str:
 
 
 templates.env.filters["euros"] = _euros
+templates.env.globals["pres_km"] = f"{config.OPEN_PRICES_PRES_KM:g}"
 templates.env.filters["couleur"] = lambda enseigne: COULEURS.get(enseigne or "", "#9A9A9A")
 
 EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
@@ -242,16 +243,53 @@ def accueil(request: Request, periode: str = "an", user: User = Depends(require_
                 a_corriger=a_corriger, t=stats.tableau_de_bord(db, user, periode))
 
 
+POSITION_COOKIE = "position"
+
+
+def _position(request: Request) -> Optional[tuple]:
+    """Position « Autour de moi », gardee seulement sur le telephone (cookie), arrondie a ~1 km."""
+    try:
+        lat, lon = (float(x) for x in request.cookies.get(POSITION_COOKIE, "").split(":"))
+    except ValueError:
+        return None
+    return (lat, lon) if -90 <= lat <= 90 and -180 <= lon <= 180 else None
+
+
+def _zone(request: Request, db: Session, user: User) -> dict:
+    return openprices.zone_de(db, user, _position(request))
+
+
+@app.post("/position")
+def position(lat: Optional[float] = Form(None), lon: Optional[float] = Form(None), retour: str = Form("/comparer"),
+             _: User = Depends(require_user), db: Session = Depends(get_db)):
+    """« Autour de moi » (une position) ou « Mes magasins » (sans position : la zone vient des tickets)."""
+    resp = RedirectResponse(retour if retour.startswith("/") and not retour.startswith("//") else "/comparer",
+                            status_code=303)
+    if lat is None or lon is None or not (-90 <= lat <= 90 and -180 <= lon <= 180):
+        resp.delete_cookie(POSITION_COOKIE)
+        return resp
+    zone = openprices.ajouter_zone(db, lat, lon)
+    db.commit()
+    if zone.copie_le is None and config.OPEN_PRICES_AUTO:
+        openprices.copier_en_fond(zone.id)
+    resp.set_cookie(POSITION_COOKIE, f"{lat:.2f}:{lon:.2f}", max_age=30 * 86400, httponly=True, samesite="lax",
+                    secure=config.COOKIE_SECURE)
+    return resp
+
+
 @app.get("/comparer", response_class=HTMLResponse)
 def comparer(request: Request, onglet: str = "moi", q: str = "", fragment: int = 0,
              user: User = Depends(require_user), db: Session = Depends(get_db)):
     q = q.strip()[:60]
     # fragment=1 : seulement la liste des resultats (recherche pendant la frappe)
     gabarit = "_comparer_resultats.html" if fragment else "comparer.html"
-    autour = openprices.chercher(db, q)  # prix Open Prices releves dans les magasins de la zone
+    zone = _zone(request, db, user)
+    # prix Open Prices releves dans les magasins proches de chez la personne
+    ctx = dict(q=q, zone=zone, autour=openprices.chercher(db, q, zone=zone),
+               zone_en_copie=openprices.zone_en_copie(db, zone))
     if onglet == "communaute":
-        return page(request, gabarit, onglet=onglet, q=q, commu=stats.communaute(db, user, q), autour=autour)
-    return page(request, gabarit, onglet="moi", q=q, c=stats.comparaisons(db, user, q), autour=autour)
+        return page(request, gabarit, onglet=onglet, commu=stats.communaute(db, user, q), **ctx)
+    return page(request, gabarit, onglet="moi", c=stats.comparaisons(db, user, q), **ctx)
 
 
 # --- Liste de courses ----------------------------------------------------------
@@ -279,8 +317,9 @@ def liste_comparer(request: Request, fragment: int = 0, direct: int = 0, habitue
         _, noms, achats = stats._derniers_prix(tickets_user)
         plus_achetes = sorted(achats.items(), key=lambda kv: -kv[1])[:PANIER_HABITUEL]
         articles, poids = [(noms[pid], pid) for pid, _ in plus_achetes], [n for _, n in plus_achetes]
-    return page(request, "_panier_resultats.html" if fragment else "panier.html", habituel=habituel,
-                r=panier.comparer_panier(db, user, articles, tickets_user, poids) if articles else None)
+    zone = _zone(request, db, user)
+    return page(request, "_panier_resultats.html" if fragment else "panier.html", habituel=habituel, zone=zone,
+                r=panier.comparer_panier(db, user, articles, tickets_user, poids, zone) if articles else None)
 
 
 @app.post("/liste")

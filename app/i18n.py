@@ -196,6 +196,18 @@ EN = {
     "Voir le ticket du {date} chez {enseigne}": "See the receipt from {date} at {enseigne}",
     "Essayez": "Try", "Autour de vous": "Near you", "promo": "deal",
     "Prix relevés dans les magasins du quartier ces 90 derniers jours.": "Prices reported in nearby stores over the last 90 days.",
+    "Magasins à moins de {km} km de votre position, prix des 90 derniers jours.":
+        "Stores within {km} km of your location, prices from the last 90 days.",
+    "Magasins à moins de {km} km de là où vous faites vos courses, prix des 90 derniers jours.":
+        "Stores within {km} km of where you shop, prices from the last 90 days.",
+    "Magasins autour de {ville} (zone par défaut) : elle s'adapte toute seule à vos magasins dès votre premier ticket.":
+        "Stores around {ville} (default area): it adapts to your stores on its own from your first receipt.",
+    "Autour de moi": "Near me", "Revenir à mes magasins": "Back to my stores",
+    "Chargement des prix autour de vous… Revenez dans une minute.": "Loading prices near you… Come back in a minute.",
+    "Pas encore de prix relevé près de vous pour « {q} ».": "No price reported near you yet for “{q}”.",
+    "Votre téléphone ne donne pas sa position.": "Your phone doesn't share its location.",
+    "Position refusée : les prix restent ceux autour de vos magasins.":
+        "Location denied: prices stay those around your stores.",
     "Source : {source}, base ouverte de prix d'Open Food Facts, licence ODbL.": "Source: {source}, Open Food Facts' open price database, ODbL licence.", "Saumon, œufs, fromage…": "Salmon, eggs, cheese…",
     "Acheté seulement chez {enseigne} : pas encore de comparaison.": "Only bought at {enseigne}: nothing to compare yet.",
     "Les comparaisons apparaissent quand vous avez acheté le même produit dans au moins deux enseignes.":

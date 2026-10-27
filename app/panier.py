@@ -18,7 +18,7 @@ import anthropic
 
 from . import config
 from .models import OpenPrice, Product, User
-from .openprices import prix_au_kilo, unite_kilo
+from .openprices import prix_au_kilo, proches, unite_kilo
 from .recherche import score
 from .enseignes import reconnaitre
 from .stats import _derniers_prix
@@ -69,14 +69,16 @@ def enseigne_du_magasin(nom: str) -> str:
     return reconnaitre(nom)[0] or nom.strip()
 
 
-def comparer_panier(db: Session, user: User, articles: list, tickets: list, poids: Optional[list] = None) -> dict:
-    """articles : [(nom, product_id ou None)] ; poids : combien de fois chaque article est achete (1 par defaut).
+def comparer_panier(db: Session, user: User, articles: list, tickets: list, poids: Optional[list] = None,
+                    zone: Optional[dict] = None) -> dict:
+    """articles : [(nom, product_id ou None)] ; poids : combien de fois chaque article est achete (1 par defaut) ;
+    zone : ou chercher les prix releves (openprices.zone_de), partout si absente.
     Renvoie le total par enseigne, l'ecart avec ce que la personne paie aujourd'hui et le panier malin."""
     derniers, _, _ = _derniers_prix(tickets)
     poids = poids or [1] * len(articles)
     # prix de reference : le dernier prix paye par la personne, quelle que soit l'enseigne
     reference = {i: max(derniers[pid].values())[1] for i, (_, pid) in enumerate(articles) if pid in derniers}
-    ouverts = db.scalars(select(OpenPrice).order_by(OpenPrice.jour.desc())).all()
+    ouverts = proches(db.scalars(select(OpenPrice).order_by(OpenPrice.jour.desc())).all(), zone)
 
     familles = {p.id: p.famille for p in db.scalars(select(Product).where(
         Product.id.in_([pid for _, pid in articles if pid])))}

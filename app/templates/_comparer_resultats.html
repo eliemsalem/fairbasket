@@ -53,10 +53,20 @@
     <p class="small">{{ _("Prix partagés anonymement par les utilisateurs ces 90 derniers jours (prix médian par magasin).") }}</p>
   {% endif %}
 
-{% if autour %}
+{% if q or autour %}
   <section style="display:flex;flex-direction:column;gap:10px;margin-top:6px">
     <h2>{{ _("Autour de vous") }}</h2>
-    <p class="small" style="margin:0">{{ _("Prix relevés dans les magasins du quartier ces 90 derniers jours.") }}</p>
+    <p class="small" style="margin:0">
+      {% if zone.source == 'position' %}{{ _("Magasins à moins de {km} km de votre position, prix des 90 derniers jours.", km=pres_km) }}
+      {% elif zone.source == 'tickets' %}{{ _("Magasins à moins de {km} km de là où vous faites vos courses, prix des 90 derniers jours.", km=pres_km) }}
+      {% else %}{{ _("Magasins autour de {ville} (zone par défaut) : elle s'adapte toute seule à vos magasins dès votre premier ticket.", ville=zone.ville) }}{% endif %}
+    </p>
+    <div style="display:flex;flex-wrap:wrap;gap:8px">
+      {% if zone.source != 'position' %}<button type="button" class="chip" data-autour-de-moi>{{ _("Autour de moi") }}</button>
+      {% else %}<form method="post" action="/position" style="margin:0"><input type="hidden" name="retour" value="/comparer?onglet={{ onglet }}&q={{ q|urlencode }}"><button class="chip">{{ _("Revenir à mes magasins") }}</button></form>{% endif %}
+    </div>
+    {% if zone_en_copie %}<p class="small" role="status" style="margin:0">{{ _("Chargement des prix autour de vous… Revenez dans une minute.") }}</p>{% endif %}
+    {% if autour %}
     <div class="rows">
       {% for r in autour %}
         <div class="row" style="align-items:flex-start">
@@ -68,5 +78,8 @@
       {% endfor %}
     </div>
     <p class="small" style="margin:0">{{ _("Source : {source}, base ouverte de prix d'Open Food Facts, licence ODbL.", source="Open Prices") }} <a href="https://prices.openfoodfacts.org" rel="noopener">prices.openfoodfacts.org</a></p>
+    {% elif not zone_en_copie %}
+    <p class="small" style="margin:0">{{ _("Pas encore de prix relevé près de vous pour « {q} ».", q=q) }}</p>
+    {% endif %}
   </section>
 {% endif %}

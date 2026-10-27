@@ -52,10 +52,13 @@ CLAUDE_EFFORT = os.environ.get("CLAUDE_EFFORT", "medium")
 MAX_TICKETS_PAR_MOIS = 60
 UPLOAD_DIR = Path(os.environ.get("UPLOAD_DIR", ROOT / "uploads"))
 
-# Open Prices : zone dont on copie les prix (par defaut Paris 19e, rayon 10 km), 90 derniers jours
+# Open Prices : zone par defaut (Paris 19e), pour qui n'a encore ni ticket ni position ; 90 derniers jours.
+# Chaque zone est copiee sur 12 km, et chacun voit les magasins a moins de 5 km de chez lui.
 OPEN_PRICES_LAT = float(os.environ.get("OPEN_PRICES_LAT", "48.8897"))
 OPEN_PRICES_LON = float(os.environ.get("OPEN_PRICES_LON", "2.3820"))
-OPEN_PRICES_RAYON_KM = int(os.environ.get("OPEN_PRICES_RAYON_KM", "10"))
+OPEN_PRICES_VILLE = os.environ.get("OPEN_PRICES_VILLE", "Paris")
+OPEN_PRICES_RAYON_KM = int(os.environ.get("OPEN_PRICES_RAYON_KM", "12"))
+OPEN_PRICES_PRES_KM = float(os.environ.get("OPEN_PRICES_PRES_KM", "5"))
 OPEN_PRICES_JOURS = 90
 ADRESSES_AUTO = os.environ.get("ADRESSES_AUTO", "1") == "1"  # adresse des magasins cherchee toute seule (OSM, BAN)
 OPEN_PRICES_AUTO = os.environ.get("OPEN_PRICES_AUTO", "1") == "1"  # synchronisation quotidienne en tache de fond
