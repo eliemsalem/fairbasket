@@ -82,3 +82,22 @@ def test_repli_sans_claude(db, monkeypatch):
     openprices.synchroniser(db, get=get)
     res = comparer_panier(db, u, [("Lait demi-écrémé 1 L", None)], _tickets(db, u))
     assert [e["enseigne"] for e in res["enseignes"]] == ["Lidl"]  # la tartelette n'est pas du lait
+
+
+def test_panier_a_l_unite(db, monkeypatch):
+    """Acheteur de lots de 2 avocats : un avocat seul ailleurs compte pour deux ; les tomates au kilo."""
+    from app import panier
+    monkeypatch.setattr(openprices.time, "sleep", lambda s: None)
+    monkeypatch.setattr(panier, "verifier", lambda noms, cand: {i: {p.id for p in c} for i, c in cand.items()})
+    u = nouvel_utilisateur(db, "a@x.fr")
+    fl = lambda lib, nom, prix: {**_article(lib, nom, prix), "categorie": "Fruits et légumes"}
+    r = ticket(db, u, 1, "Monoprix", "2026-10-03", [fl("AV2", "Avocats bio ×2", 4.0), fl("TC", "Tomates cerises 250 g", 3.0)])
+    ticket(db, u, 2, "Carrefour", "2026-10-04", [fl("AV", "Avocat bio", 1.5), fl("TC5", "Tomates cerises 500 g", 4.0)])
+    avocats, tomates = (it.product_id for it in r.items)
+    get, _ = faux_service([[item(1, "Tomates cerises", 2.0, "Lidl", 250, "g")]])
+    openprices.synchroniser(db, get=get)
+    res = comparer_panier(db, u, [("Avocats bio ×2", avocats), ("Tomates cerises 250 g", tomates)], _tickets(db, u))
+    par = {e["enseigne"]: {nom: c["prix"] if c else None for nom, c in e["lignes"]} for e in res["enseignes"]}
+    assert str(par["Carrefour"]["Avocats bio ×2"]) == "3.00" and str(par["Monoprix"]["Avocats bio ×2"]) == "4.00"
+    assert str(par["Carrefour"]["Tomates cerises 250 g"]) == "2.00"  # 8 €/kg pour 250 g
+    assert str(par["Lidl"]["Tomates cerises 250 g"]) == "2.00"

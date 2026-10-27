@@ -21,7 +21,7 @@ from .models import OpenPrice, Product, User
 from .openprices import prix_au_kilo, proches, unite_kilo
 from .recherche import score
 from .enseignes import reconnaitre
-from .stats import _derniers_prix
+from .unites import format_produit, prix_par_unite
 
 log = logging.getLogger("fairbasket.panier")
 CANDIDATS_MIN = 0.35   # assez large pour retrouver les candidats, Claude trie ensuite
@@ -69,15 +69,49 @@ def enseigne_du_magasin(nom: str) -> str:
     return reconnaitre(nom)[0] or nom.strip()
 
 
+def _a_l_unite(tickets: list) -> tuple[dict, dict]:
+    """Ce que la personne a paye, ramene a la piece, au kilo ou au litre :
+    (nom sans format, unite) -> enseigne -> (date, prix a l'unite) ; et pour chaque produit, sa cle et la
+    quantite achetee d'habitude (2 pieces, 0,5 kg…), pour remettre un prix a l'unite a l'echelle de l'article."""
+    prix, achat = defaultdict(dict), {}
+    for r in sorted(tickets, key=lambda r: r.achete_le):
+        if not r.store or r.store.enseigne in ("Inconnue", "Marché", "Commerce"):
+            continue
+        for it in r.items:
+            if not it.product_id:
+                continue
+            fmt = format_produit(it.product.nom, it.product.categorie)
+            unitaire, unite = prix_par_unite(it, fmt, arrondi=False)
+            if not unitaire:
+                continue
+            cle = (fmt.cle, unite)
+            prix[cle][r.store.enseigne] = (r.achete_le, unitaire)
+            achat[it.product_id] = (cle, it.montant / it.quantite / unitaire if it.quantite else fmt.quantite)
+    return prix, achat
+
+
 def comparer_panier(db: Session, user: User, articles: list, tickets: list, poids: Optional[list] = None,
                     zone: Optional[dict] = None) -> dict:
     """articles : [(nom, product_id ou None)] ; poids : combien de fois chaque article est achete (1 par defaut) ;
     zone : ou chercher les prix releves (openprices.zone_de), partout si absente.
     Renvoie le total par enseigne, l'ecart avec ce que la personne paie aujourd'hui et le panier malin."""
-    derniers, _, _ = _derniers_prix(tickets)
+    # chaque article ramene a l'unite (2 avocats a 4 € = 2 € la piece) puis remis a la quantite achetee d'habitude :
+    # un lot de 2 se compare a deux avocats seuls, une barquette de 250 g a 250 g vendus au kilo
+    a_l_unite, achat = _a_l_unite(tickets)
     poids = poids or [1] * len(articles)
+    cles, quantites = [], []
+    for nom, pid in articles:
+        if pid in achat:
+            cle, qte = achat[pid]
+        else:
+            fmt = format_produit(nom)
+            cle, qte = (fmt.cle, fmt.unite), fmt.quantite
+        cles.append(cle)
+        quantites.append(qte)
+    derniers = {i: {e: (jour, (pu * quantites[i]).quantize(Decimal("0.01"))) for e, (jour, pu) in a_l_unite[c].items()}
+                for i, c in enumerate(cles) if c in a_l_unite}
     # prix de reference : le dernier prix paye par la personne, quelle que soit l'enseigne
-    reference = {i: max(derniers[pid].values())[1] for i, (_, pid) in enumerate(articles) if pid in derniers}
+    reference = {i: max(d.values())[1] for i, d in derniers.items()}
     ouverts = proches(db.scalars(select(OpenPrice).order_by(OpenPrice.jour.desc())).all(), zone)
 
     familles = {p.id: p.famille for p in db.scalars(select(Product).where(
@@ -104,14 +138,28 @@ def comparer_panier(db: Session, user: User, articles: list, tickets: list, poid
     par_enseigne = defaultdict(dict)  # enseigne -> index de l'article -> choix
     for i, (nom, pid) in enumerate(articles):
         # 1. ce que la personne a paye elle-meme : le meme produit, sans doute possible
-        for enseigne, (jour, prix) in derniers.get(pid, {}).items():
+        for enseigne, (jour, prix) in derniers.get(i, {}).items():
             par_enseigne[enseigne][i] = {"prix": prix, "produit": nom, "source": "moi", "jour": jour.date()}
         # 2. sinon, le moins cher des produits retenus dans chaque autre enseigne
-        for p in sorted((p for p in candidats[i] if p.id in retenus.get(i, set())), key=lambda p: p.prix):
+        # au kilo ou au litre, un releve se remet a la quantite de l'article (sans poids connu, il est ecarte)
+        au_poids = cles[i][1] in ("kg", "L")
+        releves = []
+        for p in candidats[i]:
+            if p.id not in retenus.get(i, set()):
+                continue
+            kilo = prix_au_kilo(p)
+            if au_poids and kilo is None:  # quantite absente du releve : lue dans son nom (« Kéfir 1 L »)
+                fmt = format_produit(p.nom)
+                if fmt.unite == cles[i][1]:
+                    kilo = (p.prix / fmt.quantite).quantize(Decimal("0.01"))
+            if au_poids and kilo is None:
+                continue
+            releves.append(((kilo * quantites[i]).quantize(Decimal("0.01")) if au_poids else p.prix, p, kilo))
+        for prix, p, kilo in sorted(releves, key=lambda x: x[0]):
             enseigne = enseigne_du_magasin(p.magasin)
             if i not in par_enseigne[enseigne]:
-                par_enseigne[enseigne][i] = {"prix": p.prix, "produit": p.nom, "source": "releve", "jour": p.jour,
-                                             "magasin": p.magasin, "kilo": prix_au_kilo(p), "unite": unite_kilo(p)}
+                par_enseigne[enseigne][i] = {"prix": prix, "produit": p.nom, "source": "releve", "jour": p.jour,
+                                             "magasin": p.magasin, "kilo": kilo, "unite": unite_kilo(p)}
 
     n = len(articles)
     enseignes = []

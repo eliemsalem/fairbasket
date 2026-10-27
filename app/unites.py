@@ -50,12 +50,16 @@ def format_produit(nom: str, categorie: Optional[str] = None) -> Format:
                   paquet=bool(nombre or mesure))
 
 
-def prix_par_unite(item, fmt: Format) -> tuple[Optional[Decimal], str]:
+def prix_par_unite(item, fmt: Format, arrondi: bool = True) -> tuple[Optional[Decimal], str]:
     """Prix reellement paye (remises deduites) pour une piece, un kilo ou un litre."""
     if item.poids_kg or item.prix_kg:  # vendu au poids : le prix au kilo imprime sur le ticket, sinon calcule
         if item.prix_kg:
             return item.prix_kg, "kg"
-        return (item.montant / item.poids_kg).quantize(Decimal("0.01")) if item.poids_kg > 0 else None, "kg"
-    if not item.quantite or item.quantite <= 0 or not fmt.quantite or item.montant <= 0:
+        prix = item.montant / item.poids_kg if item.poids_kg > 0 else None
+    elif not item.quantite or item.quantite <= 0 or not fmt.quantite or item.montant <= 0:
         return None, fmt.unite
-    return (item.montant / item.quantite / fmt.quantite).quantize(Decimal("0.01")), fmt.unite
+    else:
+        prix = item.montant / item.quantite / fmt.quantite
+    if prix is not None and arrondi:
+        prix = prix.quantize(Decimal("0.01"))
+    return prix, "kg" if item.poids_kg else fmt.unite
