@@ -202,7 +202,11 @@ EN = {
         "Stores within {km} km of where you shop, prices from the last 90 days.",
     "Magasins autour de {ville} (zone par défaut) : elle s'adapte toute seule à vos magasins dès votre premier ticket.":
         "Stores around {ville} (default area): it adapts to your stores on its own from your first receipt.",
-    "Autour de moi": "Near me", "Revenir à mes magasins": "Back to my stores",
+    "Autour de moi": "Near me",
+    "Installer l'application": "Install the app", "Installer FairBasket sur votre téléphone": "Install FairBasket on your phone",
+    "Touchez le bouton Partager, puis « Sur l'écran d'accueil ».": "Tap the Share button, then “Add to Home Screen”.",
+    "Une icône sur l'écran d'accueil, comme une vraie application.": "An icon on your home screen, like a real app.",
+    "Installer": "Install", "Plus tard": "Later", "Revenir à mes magasins": "Back to my stores",
     "Chargement des prix autour de vous… Revenez dans une minute.": "Loading prices near you… Come back in a minute.",
     "Pas encore de prix relevé près de vous pour « {q} ».": "No price reported near you yet for “{q}”.",
     "Votre téléphone ne donne pas sa position.": "Your phone doesn't share its location.",

@@ -105,6 +105,13 @@ def changer_langue(code: str, retour: str = "/", user: Optional[User] = Depends(
     return resp
 
 
+@app.get("/sw.js")
+def service_worker():
+    # servi a la racine pour couvrir tout le site (condition pour installer l'application)
+    return Response((APP_DIR / "static" / "sw.js").read_text(), media_type="application/javascript",
+                    headers={"Cache-Control": "no-cache"})
+
+
 @app.get("/health")
 def health():
     # utilise par Render pour verifier que le service repond ; le type de base aide au diagnostic

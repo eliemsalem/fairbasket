@@ -84,3 +84,10 @@ def test_autour_de_moi(client, links, monkeypatch):
     assert "zone par défaut" in client.get("/comparer?q=pain").text
     r = client.post("/position", data={"lat": "1", "lon": "2", "retour": "https://ailleurs.com"}, follow_redirects=False)
     assert r.headers["location"] == "/comparer"
+
+
+def test_application_installable(client):
+    r = client.get("/sw.js")
+    assert r.status_code == 200 and "javascript" in r.headers["content-type"] and "fetch" in r.text
+    page = client.get("/").text
+    assert "/sw.js" in page and "Installer FairBasket sur votre téléphone" in page and "manifest.webmanifest" in page

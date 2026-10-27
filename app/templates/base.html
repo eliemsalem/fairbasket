@@ -15,6 +15,44 @@
 <meta name="apple-mobile-web-app-title" content="FairBasket">
 </head>
 <body>
+<div id="installer" class="card" role="region" aria-label="{{ _('Installer l\'application') }}" hidden style="position:fixed;left:12px;right:12px;top:12px;z-index:50;background:var(--bg);box-shadow:0 6px 24px rgba(0,0,0,.18);display:flex;flex-direction:column;gap:10px;max-width:480px;margin:0 auto">
+  <strong>{{ _("Installer FairBasket sur votre téléphone") }}</strong>
+  <span class="small" id="installer-ios" hidden>{{ _("Touchez le bouton Partager, puis « Sur l'écran d'accueil ».") }}</span>
+  <span class="small" id="installer-android" hidden>{{ _("Une icône sur l'écran d'accueil, comme une vraie application.") }}</span>
+  <div style="display:flex;gap:8px">
+    <button type="button" class="chip" id="installer-oui" hidden style="background:var(--fg);color:var(--on-fg);border:0">{{ _("Installer") }}</button>
+    <button type="button" class="chip" id="installer-non">{{ _("Plus tard") }}</button>
+  </div>
+</div>
 {% block body %}{% endblock %}
+<script>
+  // application installable : une seule proposition, discrete, que l'on peut repousser d'une semaine
+  if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => {});
+  (() => {
+    const boite = document.getElementById('installer');
+    const installee = matchMedia('(display-mode: standalone)').matches || navigator.standalone;
+    let repousse = 0;
+    try { repousse = +localStorage.getItem('installer-plus-tard') || 0; } catch (e) {}
+    if (installee || Date.now() - repousse < 7 * 86400000) return;
+    const montrer = (id) => { document.getElementById(id).hidden = false; boite.hidden = false; };
+    document.getElementById('installer-non').onclick = () => {
+      boite.hidden = true;
+      try { localStorage.setItem('installer-plus-tard', Date.now()); } catch (e) {}
+    };
+    // iPhone et iPad : Safari n'a pas de bouton d'installation, on montre le geste a faire
+    if (/iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)) {
+      montrer('installer-ios');
+      return;
+    }
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault();
+      const oui = document.getElementById('installer-oui');
+      oui.hidden = false;
+      oui.onclick = async () => { boite.hidden = true; e.prompt(); await e.userChoice; };
+      montrer('installer-android');
+    });
+    window.addEventListener('appinstalled', () => { boite.hidden = true; });
+  })();
+</script>
 </body>
 </html>
