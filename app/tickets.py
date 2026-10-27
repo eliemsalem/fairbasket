@@ -11,6 +11,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from . import config
+from .enseignes import est_bio, reconnaitre
 from .lecture import Lecture, LectureImpossible, image_compressee, lire_ticket
 from .models import Product, ProductAlias, Receipt, ReceiptItem, SharedPrice, Store, User, now
 
@@ -44,17 +45,12 @@ def tickets_ce_mois(db: Session, user: User) -> int:
                                                                       Receipt.importe.is_(False)))
 
 
-# formats de magasin ramenes a leur enseigne : « Carrefour City » est un magasin Carrefour
-FORMATS = {"carrefour": "Carrefour", "monop": "Monoprix", "monoprix": "Monoprix", "franprix": "Franprix",
-           "intermarche": "Intermarché", "intermarché": "Intermarché", "auchan": "Auchan", "naturalia": "Naturalia",
-           "biocoop": "Biocoop", "lidl": "Lidl", "aldi": "Aldi", "leclerc": "E.Leclerc", "e.leclerc": "E.Leclerc"}
-
-
 def enseigne_canonique(enseigne: str) -> str:
+    """« Carrefour City » -> « Carrefour », « Monop' » -> « Monoprix » ; une enseigne inconnue garde son nom."""
     enseigne = " ".join((enseigne or "").split())[:60]
-    premier = enseigne.split(" ")[0].lower().rstrip("'’") if enseigne else ""
-    if premier in FORMATS:
-        return FORMATS[premier]
+    connue, _ = reconnaitre(enseigne)
+    if connue:
+        return connue
     if enseigne.isupper() or enseigne.islower():
         enseigne = enseigne.title()  # « MONOPRIX » et « Monoprix » sont la meme enseigne
     return enseigne
@@ -80,6 +76,14 @@ def cle_produit(nom: str) -> str:
     nom = nom.replace("œ", "oe").replace("Œ", "Oe").replace("æ", "ae").replace("×", "x")
     nom = "".join(c for c in unicodedata.normalize("NFKD", nom) if not unicodedata.combining(c))
     return " ".join(nom.casefold().split())[:120]
+
+
+def avec_bio(nom: str) -> str:
+    """« Œufs ×6 » -> « Œufs bio ×6 » ; inchange si « bio » y est deja (meme forme que les autres produits bio)."""
+    if not nom or "bio" in cle_produit(nom).split():
+        return nom
+    premier, _, reste = nom.partition(" ")
+    return f"{premier} bio {reste}".strip()
 
 
 def _produit(db: Session, enseigne: str, libelle: str, nom: str, categorie: Optional[str],
@@ -137,6 +141,9 @@ def enregistrer_ticket(db: Session, user: User, data: bytes, fichier_nom: str, m
     total = _dec(d.get("total"))
     remises = _dec(d.get("remises_globales")) or Decimal("0")
     enseigne = store.enseigne if store else ""
+    if store is not None and est_bio(d.get("enseigne") or "", d.get("magasin") or ""):
+        # magasin 100 % bio : le ticket ne le dit pas, mais le produit l'est
+        d = {**d, "articles": [{**a, "nom": avec_bio(a.get("nom") or "")} for a in d.get("articles") or []]}
     items = [
         ReceiptItem(position=i, libelle=(a["libelle"] or "?")[:120], quantite=Decimal(str(a["quantite"] or 1)),
                     product=None if a.get("illisible") else _produit(db, enseigne, (a["libelle"] or "?")[:120],
@@ -236,3 +243,36 @@ def corriger_ticket(db: Session, user: User, receipt: Receipt, lignes: dict, nou
     if juste and not etait_ok:
         partager_prix(db, user, receipt)
     db.commit()
+
+
+def corriger_bio(db: Session) -> int:
+    """Tickets deja enregistres : rattache les achats faits dans une enseigne bio au produit bio correspondant."""
+    deplaces = 0
+    items = db.scalars(select(ReceiptItem).join(Receipt).join(Store)
+                       .where(ReceiptItem.product_id.is_not(None))).all()
+    for it in items:
+        if not est_bio(it.receipt.store.enseigne, it.receipt.store.nom):
+            continue
+        nom_bio = avec_bio(it.product.nom)
+        if nom_bio == it.product.nom:
+            continue
+        cible = db.scalar(select(Product).where(Product.cle == cle_produit(nom_bio)))
+        if cible is None:
+            cible = Product(nom=nom_bio, cle=cle_produit(nom_bio), categorie=it.product.categorie,
+                            famille=it.product.famille)
+            db.add(cible)
+            db.flush()
+        enseigne = it.receipt.store.enseigne
+        ancien = it.product_id
+        it.product = cible
+        # le meme libelle dans cette enseigne designe desormais le produit bio
+        alias = db.scalar(select(ProductAlias).where(ProductAlias.enseigne == enseigne, ProductAlias.libelle == it.libelle))
+        if alias:
+            alias.product = cible
+        for sp in db.scalars(select(SharedPrice).where(SharedPrice.store_id == it.receipt.store_id,
+                                                       SharedPrice.libelle == it.libelle,
+                                                       SharedPrice.product_id == ancien)):
+            sp.product_id = cible.id
+        deplaces += 1
+    db.commit()
+    return deplaces

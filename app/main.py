@@ -470,6 +470,13 @@ def admin_open_prices(_: User = Depends(require_admin), db: Session = Depends(ge
     return RedirectResponse("/admin", status_code=303)
 
 
+@app.post("/admin/bio")
+def admin_bio(_: User = Depends(require_admin), db: Session = Depends(get_db)):
+    n = tickets.corriger_bio(db)
+    log.info("Achats en magasin bio rattachés au produit bio : %s", n)
+    return RedirectResponse("/admin", status_code=303)
+
+
 @app.post("/admin/activer/{user_id}")
 def admin_activer(user_id: int, _: User = Depends(require_admin), db: Session = Depends(get_db)):
     user = db.get(User, user_id)

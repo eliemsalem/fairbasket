@@ -192,3 +192,47 @@ def test_import_hors_quota(db, monkeypatch):
         enregistrer_ticket(db, u, f"h{i}".encode(), "t.pdf", "application/pdf", lire=fausse_lecture(d), importe=True)
     assert tickets_ce_mois(db, u) == 0
     enregistrer_ticket(db, u, b"nouveau", "t.pdf", "application/pdf", lire=fausse_lecture({**ALDI, "heure": "20:00"}))
+
+
+def test_magasin_bio_produit_bio(db):
+    from app.models import Product
+    from app.tickets import avec_bio
+    assert avec_bio("Œufs ×6") == "Œufs bio ×6" and avec_bio("Banane") == "Banane bio"
+    assert avec_bio("Kéfir bio 1 L") == "Kéfir bio 1 L"
+    u = nouvel_utilisateur(db, "a@x.fr")
+    oeufs = {**_article("OEUF PT X6", "Œufs ×6", 2.89)}
+    d = {**ALDI, "enseigne": "Naturalia", "magasin": "QUAI DE LA LOIRE", "total": 2.89, "articles": [oeufs]}
+    r = enregistrer_ticket(db, u, b"n", "n.pdf", "application/pdf", lire=fausse_lecture(d)).receipt
+    assert r.items[0].product.nom == "Œufs bio ×6"
+    # chez Aldi, le meme nom reste non bio
+    d2 = {**ALDI, "total": 1.65, "articles": [_article("OEUFS", "Œufs ×6", 1.65)]}
+    r2 = enregistrer_ticket(db, u, b"a", "a.pdf", "application/pdf", lire=fausse_lecture(d2)).receipt
+    assert r2.items[0].product.nom == "Œufs ×6" and db.query(Product).count() == 2
+
+
+def test_corriger_bio_historique(db, monkeypatch):
+    from app import tickets as module_tickets
+    from app.tickets import corriger_bio
+    u = nouvel_utilisateur(db, "a@x.fr", partage=True)
+    # ticket enregistre avant la regle : on la desactive le temps de l'import
+    monkeypatch.setattr(module_tickets, "est_bio", lambda *a: False)
+    d = {**ALDI, "enseigne": "Naturalia", "magasin": "X", "total": 2.89, "articles": [_article("OEUF", "Œufs ×6", 2.89)]}
+    r = enregistrer_ticket(db, u, b"n", "n.pdf", "application/pdf", lire=fausse_lecture(d)).receipt
+    assert r.items[0].product.nom == "Œufs ×6"
+    monkeypatch.undo()
+    assert corriger_bio(db) == 1 and corriger_bio(db) == 0  # une seule fois
+    db.refresh(r)
+    assert r.items[0].product.nom == "Œufs bio ×6"
+    assert {sp.product_id for sp in db.query(SharedPrice)} == {r.items[0].product_id}
+
+
+def test_liste_des_enseignes():
+    from app.enseignes import est_bio, reconnaitre
+    from app.tickets import enseigne_canonique
+    assert enseigne_canonique("Carrefour City") == "Carrefour" and enseigne_canonique("Monop'") == "Monoprix"
+    assert enseigne_canonique("HYPER U") == "Système U" and enseigne_canonique("Intermarché Express") == "Intermarché"
+    assert reconnaitre("Centre Commercial E.Leclerc") == ("E.Leclerc", False)
+    assert est_bio("La Récolte") and est_bio("Naturalia") and est_bio("Carrefour", "CARREFOUR BIO PARIS")
+    assert not est_bio("Carrefour", "MARKET PARIS JEAN JAURES") and not est_bio("Monoprix")
+    assert reconnaitre("Matcha & Co") == (None, False)  # « match » seulement comme mot entier
+    assert enseigne_canonique("Épicerie du coin") == "Épicerie du coin"

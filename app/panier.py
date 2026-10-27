@@ -20,8 +20,8 @@ from . import config
 from .models import OpenPrice, Product, User
 from .openprices import prix_au_kilo, unite_kilo
 from .recherche import score
+from .enseignes import reconnaitre
 from .stats import _derniers_prix
-from .tickets import cle_produit
 
 log = logging.getLogger("fairbasket.panier")
 CANDIDATS_MIN = 0.35   # assez large pour retrouver les candidats, Claude trie ensuite
@@ -62,20 +62,11 @@ def verifier(articles: list, candidats: dict) -> dict:
         for i, c in a_demander.items():
             _CACHE[(articles[i], tuple(sorted(p.id for p in c)))] = retenus.get(i, set()) & {p.id for p in c}
     return {i: _CACHE.get((articles[i], tuple(sorted(p.id for p in c))), set()) for i, c in candidats.items()}
-CHAINES = [("carrefour", "Carrefour"), ("monoprix", "Monoprix"), ("monop", "Monoprix"), ("franprix", "Franprix"),
-           ("leclerc", "E.Leclerc"), ("auchan", "Auchan"), ("lidl", "Lidl"), ("aldi", "Aldi"),
-           ("intermarche", "Intermarché"), ("biocoop", "Biocoop"), ("naturalia", "Naturalia"), ("picard", "Picard"),
-           ("casino", "Casino"), ("super u", "U"), ("hyper u", "U"), ("u express", "U"), ("g20", "G20"),
-           ("grand frais", "Grand Frais"), ("la vie claire", "La Vie Claire")]
 
 
 def enseigne_du_magasin(nom: str) -> str:
     """« Centre Commercial E.Leclerc » -> « E.Leclerc », « Carrefour Market » -> « Carrefour »."""
-    cle = cle_produit(nom)
-    for motif, enseigne in CHAINES:
-        if motif in cle:
-            return enseigne
-    return nom.strip()
+    return reconnaitre(nom)[0] or nom.strip()
 
 
 def comparer_panier(db: Session, user: User, articles: list, tickets: list) -> dict:

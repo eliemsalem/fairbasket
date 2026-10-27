@@ -8,6 +8,7 @@
     <span class="small"><strong>Open Prices</strong> : {{ open_prices[0] }} prix{% if open_prices[1] %}, copiés le {{ open_prices[1].strftime('%d/%m/%Y à %H:%M') }}{% endif %}</span>
     <form method="post" action="/admin/open-prices"><button class="btn ghost" style="height:36px;padding:0 12px;width:auto" type="submit">Actualiser</button></form>
   </div>
+  <form method="post" action="/admin/bio"><button class="btn ghost" type="submit">Marquer bio les achats faits dans les magasins 100 % bio</button></form>
   <h1>Liste d'attente</h1>
   {% if attente %}
   <table>
