@@ -36,6 +36,8 @@ EMAIL_BACKEND = "brevo" if BREVO_API_KEY else "console"
 EMAIL_FROM = os.environ.get("EMAIL_FROM", "")  # adresse d'expediteur verifiee dans Brevo
 EMAIL_FROM_NAME = os.environ.get("EMAIL_FROM_NAME", "FairBasket")
 # adresses qui ont acces a l'administration et passent la liste d'attente
+# beta ouverte : chaque inscrit est accepte tout de suite et recoit son lien (0 : liste d'attente a valider en admin)
+INSCRIPTION_LIBRE = os.environ.get("INSCRIPTION_LIBRE", "1") == "1"
 ADMIN_EMAILS = {e.strip().lower() for e in os.environ.get("ADMIN_EMAILS", "").split(",") if e.strip()}
 # cookie "Secure" en production (HTTPS)
 COOKIE_SECURE = BASE_URL.startswith("https://")

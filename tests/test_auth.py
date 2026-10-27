@@ -104,3 +104,25 @@ def test_envoi_rate_ne_compte_pas(client, monkeypatch):
     monkeypatch.setattr(module_auth, "send_login_email", lambda user, link: envoyes.append(link) or True)
     client.post("/connexion", data={"email": "admin@exemple.fr"})
     assert len(envoyes) == 1  # la limite n'a pas ete consommee par les echecs
+
+
+def test_inscription_libre(client, links, monkeypatch):
+    monkeypatch.setattr(config, "INSCRIPTION_LIBRE", True)
+    r = inscrire(client, "lea@exemple.fr")
+    assert "Vérifiez vos e-mails" in r.text and len(links["lea@exemple.fr"]) == 1  # le lien part tout de suite
+    r = client.get(chemin(links["lea@exemple.fr"][-1]), follow_redirects=False)
+    assert r.headers["location"] == "/presentation"
+
+
+def test_ancienne_liste_d_attente_acceptee(client, links, monkeypatch):
+    inscrire(client, "marie@exemple.fr")  # liste d'attente
+    monkeypatch.setattr(config, "INSCRIPTION_LIBRE", True)
+    client.post("/connexion", data={"email": "marie@exemple.fr"})
+    assert len(links["marie@exemple.fr"]) == 1
+    inscrire(client, "paul@exemple.fr")  # deja libre : actif tout de suite
+    monkeypatch.setattr(config, "INSCRIPTION_LIBRE", False)
+    inscrire(client, "zoe@exemple.fr")
+    monkeypatch.setattr(config, "INSCRIPTION_LIBRE", True)
+    from app import main
+    main._accepter_la_liste_d_attente()  # au demarrage
+    assert len(links["zoe@exemple.fr"]) == 1

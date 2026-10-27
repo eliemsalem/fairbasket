@@ -9,6 +9,7 @@ import io
 import logging
 import mimetypes
 import shutil
+import threading
 from urllib.parse import quote
 from decimal import Decimal
 
@@ -37,6 +38,17 @@ _journal.setLevel(logging.INFO)
 log = logging.getLogger("fairbasket.pages")
 
 
+def _accepter_la_liste_d_attente() -> None:
+    """Inscription libre : les personnes encore en liste d'attente sont acceptees et recoivent leur lien."""
+    try:
+        with SessionLocal() as db:
+            for user in db.scalars(select(User).where(User.statut == "attente")).all():
+                _activer(db, user)
+                log.info("Liste d'attente : compte %s accepté automatiquement", user.id)
+    except Exception as e:
+        log.error("Liste d'attente : acceptation automatique impossible : %s", e)
+
+
 @asynccontextmanager
 async def lifespan(_app):
     init_db()
@@ -47,6 +59,8 @@ async def lifespan(_app):
         adresses.demarrer_recherche()
     with SessionLocal() as db:
         suivi.purger(db)
+    if config.INSCRIPTION_LIBRE:
+        threading.Thread(target=_accepter_la_liste_d_attente, name="liste-attente", daemon=True).start()
     yield
 
 
@@ -185,7 +199,7 @@ def inscription(
     user = db.scalar(select(User).where(User.email == email))
     if user is None:
         t = now()
-        actif = email in config.ADMIN_EMAILS
+        actif = email in config.ADMIN_EMAILS or config.INSCRIPTION_LIBRE
         user = User(
             email=email, prenom=prenom, statut="actif" if actif else "attente", activated_at=t if actif else None,
             lang=langue(request),
@@ -193,6 +207,9 @@ def inscription(
             partage_consent=bool(partage), partage_consent_at=t if partage else None,
         )
         db.add(user)
+        db.commit()
+    if user.statut != "actif" and config.INSCRIPTION_LIBRE:  # inscrit avant l'ouverture : accepte maintenant
+        user.statut, user.activated_at = "actif", now()
         db.commit()
     if user.statut != "actif":
         log.info("Inscription en liste d'attente (compte %s) : pas de lien envoyé", user.id)
@@ -225,6 +242,9 @@ def connexion_form(request: Request):
 def connexion(request: Request, email: str = Form(""), db: Session = Depends(get_db)):
     email = email.strip().lower()
     user = db.scalar(select(User).where(User.email == email))
+    if user and user.statut != "actif" and config.INSCRIPTION_LIBRE:
+        user.statut, user.activated_at = "actif", now()
+        db.commit()
     if user and user.statut == "actif":
         return _envoyer_lien(request, db, user)
     log.info("Demande de lien pour un compte %s : rien envoyé", "en liste d'attente" if user else "inexistant")
@@ -621,6 +641,7 @@ def avis_envoi(request: Request, message: str = Form(""), de: str = Form(""), re
 def admin(request: Request, _: User = Depends(require_admin), db: Session = Depends(get_db)):
     attente = db.scalars(select(User).where(User.statut == "attente").order_by(User.created_at)).all()
     return page(request, "admin.html", attente=attente, s=suivi.tableau(db), nom_page=suivi.nom_page,
+                inscription_libre=config.INSCRIPTION_LIBRE,
                 open_prices=(db.scalar(select(func.count()).select_from(OpenPrice)), openprices.derniere_synchro(db)))
 
 
@@ -672,10 +693,15 @@ def admin_activer(user_id: int, _: User = Depends(require_admin), db: Session = 
     user = db.get(User, user_id)
     if user is None:
         raise HTTPException(status_code=404)
+    _activer(db, user)
+    return RedirectResponse("/admin", status_code=303)
+
+
+def _activer(db: Session, user: User) -> None:
+    """Accepte le compte et lui envoie son lien de connexion."""
     if user.statut != "actif":
         user.statut, user.activated_at = "actif", now()
         db.commit()
         link = auth.create_login_link(db, user)
         if link and not auth.send_login_email(user, link):
             auth.annuler_lien(db, link)
-    return RedirectResponse("/admin", status_code=303)

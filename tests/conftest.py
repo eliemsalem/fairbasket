@@ -10,6 +10,7 @@ os.environ["ADMIN_EMAILS"] = "admin@exemple.fr"
 os.environ["BASE_URL"] = "http://testserver"
 os.environ["OPEN_PRICES_AUTO"] = "0"  # pas d'appel reseau pendant les tests
 os.environ["ADRESSES_AUTO"] = "0"
+os.environ["INSCRIPTION_LIBRE"] = "0"  # les tests de la liste d'attente ; l'inscription libre a son propre test
 
 from fastapi.testclient import TestClient  # noqa: E402
 from sqlalchemy.orm import close_all_sessions  # noqa: E402

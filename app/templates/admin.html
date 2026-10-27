@@ -25,7 +25,7 @@
       {% endfor %}
       </tbody>
     </table></div>
-    {% else %}<p class="lede">Personne en attente.</p>{% endif %}
+    {% else %}<p class="lede">Personne en attente.{% if inscription_libre %} Inscription libre : chaque inscrit est accepté tout de suite (réglage INSCRIPTION_LIBRE sur Render, 0 pour revenir à la liste d'attente).{% endif %}</p>{% endif %}
   </section>
 
   <section>
