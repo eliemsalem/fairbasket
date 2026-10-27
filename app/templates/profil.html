@@ -33,7 +33,7 @@
     <span class="eyebrow">{{ _("Mes données") }}</span>
     <a class="btn ghost" href="/profil/export.csv">{{ _("Exporter mes {n} tickets (CSV)", n=nb_tickets) }}</a>
     <details class="card" style="border-color:var(--danger)">
-      <summary style="cursor:pointer;color:var(--danger);font-weight:600">{{ _("Supprimer toutes mes données") }}</summary>
+      <summary style="cursor:pointer;color:var(--danger);font-weight:600">{{ _("Supprimer mon compte et toutes mes données") }}</summary>
       <form method="post" action="/profil/supprimer" style="gap:10px;margin-top:12px">
         <p class="small" style="color:var(--fg)">{{ _("Vos tickets, leurs fichiers et votre compte seront supprimés définitivement. Les prix déjà partagés de façon anonyme restent, sans lien avec vous.") }}</p>
         <div class="field"><label for="confirmation">{{ _("Tapez SUPPRIMER pour confirmer") }}</label><input id="confirmation" name="confirmation" type="text" autocomplete="off" required></div>

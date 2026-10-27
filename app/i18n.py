@@ -239,7 +239,7 @@ EN = {
     "Partager mes prix anonymement": "Share my prices anonymously",
     "Produit, magasin, prix et jour. Jamais votre identité.": "Product, store, price and day. Never your identity.",
     "Activé le {date}.": "Turned on {date}.", "Mes données": "My data",
-    "Exporter mes {n} tickets (CSV)": "Export my {n} receipts (CSV)", "Supprimer toutes mes données": "Delete all my data",
+    "Exporter mes {n} tickets (CSV)": "Export my {n} receipts (CSV)", "Supprimer mon compte et toutes mes données": "Delete my account and all my data",
     "Vos tickets, leurs fichiers et votre compte seront supprimés définitivement. Les prix déjà partagés de façon anonyme restent, sans lien avec vous.":
         "Your receipts, their files and your account will be permanently deleted. Prices already shared anonymously remain, with no link to you.",
     "Tapez SUPPRIMER pour confirmer": "Type SUPPRIMER to confirm", "Tout supprimer": "Delete everything",
