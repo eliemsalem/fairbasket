@@ -9,6 +9,7 @@ import io
 import logging
 import mimetypes
 import shutil
+from urllib.parse import quote
 from decimal import Decimal
 
 from fastapi import Depends, FastAPI, File, Form, HTTPException, Request, UploadFile
@@ -88,6 +89,7 @@ def _euros(v) -> str:
 
 
 templates.env.filters["euros"] = _euros
+templates.env.globals["est_bio"] = tickets.nom_bio
 templates.env.globals["pres_km"] = f"{config.OPEN_PRICES_PRES_KM:g}"
 templates.env.filters["couleur"] = lambda enseigne: COULEURS.get(enseigne or "", "#9A9A9A")
 
@@ -535,6 +537,35 @@ def ticket_magasin(receipt_id: int, enseigne: str = Form(""), magasin: str = For
     r = _ticket_de(db, user, receipt_id)
     tickets.changer_magasin(db, r, enseigne, magasin)
     return RedirectResponse(f"/tickets/{r.id}", status_code=303)
+
+
+@app.post("/tickets/{receipt_id}/produit/{item_id}")
+def ticket_produit(receipt_id: int, item_id: int, nom: str = Form(""), retour: str = Form(""),
+                   user: User = Depends(require_user), db: Session = Depends(get_db)):
+    r = _ticket_de(db, user, receipt_id)
+    item = next((it for it in r.items if it.id == item_id), None)
+    if item is None:
+        raise HTTPException(status_code=404)
+    produit = tickets.renommer_produit(db, item, nom)
+    suivi.noter(user.id, "produit_renomme", "/tickets/{receipt_id}", f"{item.libelle} → {nom[:80]}")
+    suite = f"?retour={quote(retour)}" if retour.startswith("/") and not retour.startswith("//") else ""
+    return RedirectResponse(f"/tickets/{r.id}{suite}#p{produit.id if produit else ''}", status_code=303)
+
+
+@app.post("/tickets/{receipt_id}/bio/{item_id}")
+def ticket_bio(receipt_id: int, item_id: int, retour: str = Form(""), user: User = Depends(require_user),
+               db: Session = Depends(get_db)):
+    """Un geste : l'article est bio, ou ne l'est pas (meme effet que corriger son nom)."""
+    r = _ticket_de(db, user, receipt_id)
+    item = next((it for it in r.items if it.id == item_id), None)
+    if item is None:
+        raise HTTPException(status_code=404)
+    nom = item.product.nom if item.product else item.libelle.capitalize()
+    nom = tickets.sans_bio(nom) if tickets.nom_bio(nom) else tickets.avec_bio(nom)
+    produit = tickets.renommer_produit(db, item, nom)
+    suivi.noter(user.id, "produit_renomme", "/tickets/{receipt_id}", f"{item.libelle} → {nom[:80]}")
+    suite = f"?retour={quote(retour)}" if retour.startswith("/") and not retour.startswith("//") else ""
+    return RedirectResponse(f"/tickets/{r.id}{suite}#p{produit.id if produit else ''}", status_code=303)
 
 
 @app.post("/tickets/{receipt_id}/adresse")

@@ -28,7 +28,14 @@
   {% if r.statut == 'ok' %}
     <div class="check"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex:none"><path d="M5 12l5 5 9-10"/></svg><span>{{ _("Total vérifié : la somme des {n} articles est égale au total du ticket.", n=r.items|length) }}</span></div>
     <div class="rows">
-      {% for it in r.items %}<div class="row"{% if it.product_id %} id="p{{ it.product_id }}"{% endif %}><span class="grow">{{ it.product.nom if it.product else it.libelle }}<br><span class="small">{{ it.libelle }}{% if it.prix_kg %} · {{ it.prix_kg|euros }}/kg{% endif %}{% if it.product and it.product.categorie %} · {{ _(it.product.categorie) }}{% endif %}</span></span><span class="mono">{{ it.montant|euros }}</span></div>{% endfor %}
+      {% for it in r.items %}{% set bio = est_bio(it.product.nom if it.product else '') %}<div class="row{{ ' bio' if bio }}"{% if it.product_id %} id="p{{ it.product_id }}"{% endif %}><span class="grow">{% if r.store %}<details class="renommer"><summary><span class="nom-produit">{{ it.product.nom if it.product else it.libelle }}</span> <span class="small" aria-hidden="true">✎</span></summary>
+          <form method="post" action="/tickets/{{ r.id }}/produit/{{ it.id }}" style="gap:8px;margin:8px 0">
+            <label class="small" for="n{{ it.id }}">{{ _("Le bon nom du produit (précisez bio, marque, format si besoin)") }}</label>
+            <input id="n{{ it.id }}" name="nom" type="text" value="{{ it.product.nom if it.product else '' }}" maxlength="120" required>
+            <input type="hidden" name="retour" value="{{ retour }}">
+            <button class="btn ghost" style="height:40px" type="submit">{{ _("Corriger partout") }}</button>
+            <span class="small">{{ _("Toutes les lignes « {libelle} » de cette enseigne prendront ce nom, et les prochains tickets aussi.", libelle=it.libelle) }}</span>
+          </form></details>{% else %}{{ it.product.nom if it.product else it.libelle }}{% endif %}<span class="small">{{ it.libelle }}{% if it.prix_kg %} · {{ it.prix_kg|euros }}/kg{% endif %}{% if it.product and it.product.categorie %} · {{ _(it.product.categorie) }}{% endif %}</span></span>{% if r.store %}<form method="post" action="/tickets/{{ r.id }}/bio/{{ it.id }}" style="margin:0"><input type="hidden" name="retour" value="{{ retour }}"><button class="pastille-bio" type="submit" aria-pressed="{{ 'true' if bio else 'false' }}" aria-label="{{ _('Bio') }} : {{ it.product.nom if it.product else it.libelle }}">{{ _("Bio") }}</button></form>{% endif %}<span class="mono">{{ it.montant|euros }}</span></div>{% endfor %}
       {% if r.remises_globales %}<div class="row"><span class="grow">{{ _("Remises") }}</span><span class="mono">−{{ r.remises_globales|euros }}</span></div>{% endif %}
     </div>
   {% else %}

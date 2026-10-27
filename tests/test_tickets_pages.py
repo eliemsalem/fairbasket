@@ -128,3 +128,50 @@ def test_page_adresse_et_photos(client, links, monkeypatch):
     r = client.post(f"/tickets/{numero}/adresse", data={"adresse": "85 rue de Meaux", "code_postal": "75019",
                                                          "ville": "Paris"})
     assert "85 rue de Meaux, 75019 Paris" in r.text
+
+
+def test_renommer_un_produit(client, links, monkeypatch, tmp_path):
+    """« Ce n'est pas le meme produit » : la ligne, ses semblables et les prochains tickets changent de nom."""
+    from app import tickets
+    from app.db import SessionLocal
+    from app.models import ProductAlias, ReceiptItem
+    from tests.test_auth import connecter_admin
+    from tests.test_stats import ticket
+    from tests.test_tickets import _article
+    connecter_admin(client, links)
+    with SessionLocal() as db:
+        from app.models import User
+        u = db.query(User).first()
+        r1 = ticket(db, u, 1, "Carrefour", "2026-10-03", [_article("BQ P SAUM AP FQC", "Pavé de saumon", 6.59)])
+        r2 = ticket(db, u, 2, "Carrefour", "2026-10-04", [_article("BQ P SAUM AP FQC", "Pavé de saumon", 6.59),
+                                                          _article("PAVE SAUMON", "Pavé de saumon", 9.99)])
+        item, rid, rid2 = r1.items[0].id, r1.id, r2.id
+    assert "Corriger partout" in client.get(f"/tickets/{rid}").text
+    r = client.post(f"/tickets/{rid}/produit/{item}", data={"nom": "Pavé de saumon Filière Qualité",
+                                                            "retour": "/comparer?q=saumon"}, follow_redirects=False)
+    assert r.headers["location"].startswith(f"/tickets/{rid}?retour=/comparer%3Fq%3Dsaumon#p")
+    with SessionLocal() as db:
+        noms = {(i.libelle, i.product.nom) for i in db.query(ReceiptItem).filter(ReceiptItem.receipt_id.in_([rid, rid2]))}
+        assert noms == {("BQ P SAUM AP FQC", "Pavé de saumon Filière Qualité"), ("PAVE SAUMON", "Pavé de saumon")}
+        alias = db.query(ProductAlias).filter_by(enseigne="Carrefour", libelle="BQ P SAUM AP FQC").one()
+        assert alias.product.nom == "Pavé de saumon Filière Qualité"  # retenu pour les prochains tickets
+
+
+def test_bio_en_un_geste(client, links):
+    from app.db import SessionLocal
+    from app.models import ReceiptItem, User
+    from tests.test_auth import connecter_admin
+    from tests.test_stats import ticket
+    from tests.test_tickets import _article
+    connecter_admin(client, links)
+    with SessionLocal() as db:
+        u = db.query(User).first()
+        r = ticket(db, u, 1, "Carrefour", "2026-10-03", [_article("PAVE SAUMON", "Pavé de saumon", 9.99)])
+        rid, item = r.id, r.items[0].id
+    assert 'aria-pressed="false"' in client.get(f"/tickets/{rid}").text
+    client.post(f"/tickets/{rid}/bio/{item}")
+    page = client.get(f"/tickets/{rid}").text
+    assert 'class="row bio"' in page and 'aria-pressed="true"' in page and "Pavé de saumon bio" in page
+    client.post(f"/tickets/{rid}/bio/{item}")  # et retour en arriere
+    with SessionLocal() as db:
+        assert db.get(ReceiptItem, item).product.nom == "Pavé de saumon"

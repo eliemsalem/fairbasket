@@ -203,16 +203,24 @@ EN = {
     "Magasins autour de {ville} (zone par défaut) : elle s'adapte toute seule à vos magasins dès votre premier ticket.":
         "Stores around {ville} (default area): it adapts to your stores on its own from your first receipt.",
     "Autour de moi": "Near me",
+    "Le bon nom du produit (précisez bio, marque, format si besoin)":
+        "The right product name (add organic, brand, size if needed)",
+    "Corriger partout": "Fix everywhere", "Bio": "Organic",
+    "Touchez un prix pour voir le ticket. Pas le même produit ? Touchez son nom sur le ticket pour le corriger.":
+        "Tap a price to see the receipt. Not the same product? Tap its name on the receipt to fix it.",
+    "Toutes les lignes « {libelle} » de cette enseigne prendront ce nom, et les prochains tickets aussi.":
+        "Every “{libelle}” line from this chain will take this name, and future receipts too.",
     "Exemple réel": "Real example",
     "Ce que FairBasket a trouvé dans les tickets d'un testeur": "What FairBasket found in a tester's receipts",
-    "Pavé de saumon": "Salmon fillet", "Œufs bio ×6": "Organic eggs ×6", "Champignons de Paris": "Button mushrooms",
-    "acheté {n} fois": "bought {n} times",
-    "{euros} d'écart sur l'année, pour le même produit.": "{euros} difference over the year, for the same product.",
-    "Deux fois plus cher d'une enseigne à l'autre.": "Twice as expensive from one chain to another.",
-    "Son panier habituel coûte 39 % de plus chez Monoprix que chez Carrefour.":
-        "Their usual basket costs 39% more at Monoprix than at Carrefour.",
-    "46 tickets ajoutés en quelques minutes grâce aux PDF de sa carte de fidélité.":
-        "46 receipts added in minutes thanks to the PDFs from their loyalty card.",
+    "Lait bio Lactel 1 L": "Lactel organic milk 1 L", "même marque, même bouteille": "same brand, same bottle",
+    "33 % plus cher pour exactement le même produit.": "33% more for exactly the same product.",
+    "Chips salées 150 g": "Salted crisps 150 g", "même format": "same size", "27 % plus cher.": "27% more.",
+    "Pavé de saumon bio": "Organic salmon fillet", "bio des deux côtés": "organic on both sides",
+    "Ici, c'est l'autre enseigne la moins chère.": "Here, the other chain is cheaper.",
+    "Le moins cher n'est pas toujours le même magasin : FairBasket compare produit par produit.":
+        "The cheapest isn't always the same store: FairBasket compares product by product.",
+    "95 tickets ajoutés en quelques minutes grâce aux PDF de sa carte de fidélité.":
+        "95 receipts added in minutes thanks to the PDFs from their loyalty card.",
     "Ajouter mon premier ticket": "Add my first receipt",
     "Astuce : avec une carte de fidélité, téléchargez vos tickets en PDF depuis le site de l'enseigne et ajoutez-les tous d'un coup.":
         "Tip: with a loyalty card, download your receipts as PDFs from the store's website and add them all at once.",

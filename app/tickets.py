@@ -95,8 +95,19 @@ def avec_bio(nom: str) -> str:
     """« Œufs ×6 » -> « Œufs bio ×6 » ; inchange si « bio » y est deja (meme forme que les autres produits bio)."""
     if not nom or "bio" in cle_produit(nom).split():
         return nom
-    premier, _, reste = nom.partition(" ")
-    return f"{premier} bio {reste}".strip()
+    # avant le format (« Lait bio 1 L », « Œufs bio ×6 »), sinon a la fin (« Pavé de saumon bio »)
+    mots = nom.split()
+    i = next((k for k, m in enumerate(mots) if k and (any(c.isdigit() for c in m) or m.startswith("×"))), len(mots))
+    return " ".join(mots[:i] + ["bio"] + mots[i:])
+
+
+def nom_bio(nom: Optional[str]) -> bool:
+    return bool(nom) and "bio" in cle_produit(nom).split()
+
+
+def sans_bio(nom: str) -> str:
+    """« Œufs bio ×6 » -> « Œufs ×6 »."""
+    return " ".join(m for m in nom.split() if cle_produit(m) != "bio") or nom
 
 
 def _produit(db: Session, enseigne: str, libelle: str, nom: str, categorie: Optional[str],
@@ -299,6 +310,34 @@ def corriger_ticket(db: Session, user: User, receipt: Receipt, lignes: dict, nou
     if juste and not etait_ok:
         partager_prix(db, user, receipt)
     db.commit()
+
+
+def renommer_produit(db: Session, item: ReceiptItem, nom: str) -> Optional[Product]:
+    """« Ce n'est pas le meme produit » : la ligne (et toutes celles qui portent le meme libelle dans cette
+    enseigne, tickets et prix partages) passe sous ce nom ; l'app le retient pour les prochains tickets."""
+    nom = " ".join((nom or "").split())[:120]
+    if not nom or item.receipt.store is None:
+        return None
+    ancien = item.product
+    produit = db.scalar(select(Product).where(Product.cle == cle_produit(nom)))
+    if produit is None:
+        produit = Product(nom=nom[0].upper() + nom[1:], cle=cle_produit(nom),
+                          categorie=ancien.categorie if ancien else None, famille=ancien.famille if ancien else None)
+        db.add(produit)
+        db.flush()
+    enseigne = item.receipt.store.enseigne
+    alias = db.scalar(select(ProductAlias).where(ProductAlias.enseigne == enseigne, ProductAlias.libelle == item.libelle))
+    if alias is None:
+        db.add(ProductAlias(enseigne=enseigne, libelle=item.libelle, product=produit))
+    else:
+        alias.product = produit
+    magasins = select(Store.id).where(Store.enseigne == enseigne)
+    db.execute(update(ReceiptItem).where(ReceiptItem.libelle == item.libelle, ReceiptItem.receipt_id.in_(
+        select(Receipt.id).where(Receipt.store_id.in_(magasins)))).values(product_id=produit.id))
+    db.execute(update(SharedPrice).where(SharedPrice.libelle == item.libelle, SharedPrice.store_id.in_(magasins))
+               .values(product_id=produit.id))
+    db.commit()
+    return produit
 
 
 def corriger_bio(db: Session) -> int:

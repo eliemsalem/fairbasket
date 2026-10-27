@@ -1,5 +1,5 @@
   {% if onglet == 'moi' %}
-    {% if c.produits %}<p class="small" style="margin:0">{{ _("Touchez un prix pour voir le ticket.") }}</p>{% endif %}
+    {% if c.produits %}<p class="small" style="margin:0">{{ _("Touchez un prix pour voir le ticket. Pas le même produit ? Touchez son nom sur le ticket pour le corriger.") }}</p>{% endif %}
     {% if c.meilleure and not q %}
     <div class="card" style="background:var(--fg);color:var(--on-fg);border:0">
       <span class="eyebrow" style="color:inherit;opacity:.75">{{ _("Votre panier habituel") }}</span><br>
