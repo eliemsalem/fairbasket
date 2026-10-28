@@ -184,8 +184,11 @@ def comparaisons(db: Session, user: User, recherche: str = "") -> dict:
     produits = {p.id: p for p in db.scalars(select(Product).where(Product.id.in_([k[0] for k in derniers])))}
     produit = lambda k: produits[k[0]]  # cle : (produit, unite)
 
+    magasin_du_ticket = {r.id: r.store for r in tickets}
+
     def fiche(pid):
-        lignes = sorted(({"enseigne": e, "prix": p, "date": d, "ticket": ticket_de.get((pid, e))}
+        lignes = sorted(({"enseigne": e, "prix": p, "date": d, "ticket": ticket_de.get((pid, e)),
+                          "store": magasin_du_ticket.get(ticket_de.get((pid, e)))}
                          for e, (d, p) in derniers[pid].items()), key=lambda l: l["prix"])
         unite, paquets = unites.get(pid, ("pièce", False))
         # « / pièce » seulement si des lots ou des quantites ont ete ramenes a l'unite
@@ -237,17 +240,19 @@ def communaute(db: Session, user: User, recherche: str = "", jours: int = 90) ->
     gardes = set(classer(recherche, list(fiches), cle=lambda pid: (fiches[pid].nom, fiches[pid].famille or "",
                                                                    fiches[pid].categorie or ""))) \
         if recherche.strip() else set(fiches)
-    groupes = defaultdict(lambda: defaultdict(list))
+    groupes, magasins = defaultdict(lambda: defaultdict(list)), {}
     for sp, store in rangs:
         if sp.product_id not in gardes:
             continue
         groupes[sp.product_id][(store.enseigne, store.nom)].append(sp.prix_unitaire)
+        magasins[(store.enseigne, store.nom)] = store
     resultat = []
     for pid, par_mag in groupes.items():
         lignes = []
         for (enseigne, nom), prix in par_mag.items():
             prix = sorted(prix)
-            lignes.append({"enseigne": enseigne, "magasin": nom.title(), "prix": prix[len(prix) // 2],
+            lignes.append({"enseigne": enseigne, "magasin": nom.title(), "store": magasins[(enseigne, nom)],
+                           "prix": prix[len(prix) // 2],
                            "releves": len(prix)})
         if len(lignes) >= 2:
             resultat.append({"nom": noms[pid], "lignes": sorted(lignes, key=lambda l: l["prix"])})

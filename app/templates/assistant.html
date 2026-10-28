@@ -20,13 +20,30 @@
   <article class="card reponse" id="q{{ q.id }}"{% if derniere == q.id %} aria-live="polite"{% endif %}>
     <p class="small" style="margin:0"><strong>{{ q.texte }}</strong></p>
     <p style="margin:8px 0 0;white-space:pre-line">{{ q.reponse }}</p>
-    {% if q.resultats %}
-    <details style="margin-top:8px"><summary class="small">{{ _("Voir les {n} prix trouvés", n=q.resultats|length) }}</summary>
-      <div class="rows" style="margin-top:6px">{% for o in q.resultats|sort(attribute='prix') %}
-        <div class="row"><span class="grow">{{ o.produit }}<br><span class="small">{{ _(o.enseigne) if o.enseigne else o.magasin }}{% if o.distance_km is not none %} · {{ o.distance_km }} km{% endif %} · {{ {"tickets": _("vos tickets"), "communaute": _("autres utilisateurs"), "open_prices": "Open Prices"}[o.source] }}{% if o.date %} · {{ o.date[8:10] }}/{{ o.date[5:7] }}{% endif %}</span></span>
-        <span class="mono">{% if o.prix_kilo is defined and o.prix_kilo is not none %}{{ o.prix_kilo|euros }} / {{ o.unite }}{% else %}{{ o.prix|euros }}{% if o.unite %} / {{ _(o.unite) }}{% endif %}{% endif %}</span></div>
-      {% endfor %}</div>
-    </details>
+    {% if q.resultats %}{% set prop = q.resultats if q.resultats is mapping else {"offres": q.resultats} %}
+    {% if prop.conseil %}<p class="conseil">{{ prop.conseil }}</p>{% endif %}
+    <div class="choix">
+    {% for o in prop.offres %}
+      {% set d = o.get('distance_km') %}<div class="choix-carte{{ ' premier' if loop.first and prop.offres|length > 1 }}">
+        <div class="choix-tete">
+          <span class="dot" style="width:10px;height:10px;flex:none;background:{{ (o.get('enseigne') or '')|couleur }}"></span>
+          <strong class="grow">{{ _(o.get('enseigne')) if o.get('enseigne') else o.get('magasin') }}</strong>
+          {% if loop.first and prop.offres|length > 1 %}<span class="badge">{{ _("meilleur choix") }}</span>{% endif %}
+        </div>
+        <div class="choix-prix"><span class="mono">{% if o.get('prix_unitaire') is not none and o.get('unite') %}{{ o.prix_unitaire|euros }}<span class="small"> / {{ _(o.get('unite')) }}</span>{% else %}{{ o.prix|euros }}{% endif %}</span>
+          {% if o.get('prix_unitaire') is not none and o.get('unite') and o.prix != o.get('prix_unitaire') %}<span class="small">{{ o.prix|euros }}</span>{% endif %}</div>
+        <span class="small">{{ o.produit }}</span>
+        {% if o.get('adresse') or d is not none %}<span class="small">📍 {% if o.get('magasin') and o.get('magasin') != o.get('enseigne') %}{{ o.get('magasin') }} · {% endif %}{{ o.get('adresse') or o.get('ville') or "" }}{% if d is not none %} · <strong>{% if d < 0.3 %}{{ _("tout près") }}{% else %}{{ d }} km{% endif %}</strong>{% endif %}{% if o.get('magasin_proche') %} ({{ _("le plus proche") }}){% endif %}</span>{% endif %}
+        <span class="small">{{ {"tickets": _("vos tickets"), "communaute": _("autres utilisateurs"), "open_prices": "Open Prices", "web": _("prix en ligne")}.get(o.source, o.source) }}{% if o.get('date') %} · {{ o.get('date')[8:10] }}/{{ o.get('date')[5:7] }}{% endif %}{% if o.get('deja_client') %} · {{ _("vous y allez déjà") }}{% endif %}</span>
+        <div class="choix-actions">
+          {% if o.get('lat') is not none and o.get('lon') is not none %}<a class="chip" href="https://www.google.com/maps/search/?api=1&query={{ o.get('lat') }}%2C{{ o.get('lon') }}" target="_blank" rel="noopener">{{ _("Itinéraire") }}</a>{% endif %}
+          {% if o.get('url') %}<a class="chip" href="{{ o.get('url') }}" target="_blank" rel="noopener nofollow">{{ _("Voir en ligne") }}</a>{% endif %}
+          <form method="post" action="/liste" style="margin:0;display:inline"><input type="hidden" name="nom" value="{{ o.produit }}"><button class="chip" type="submit">{{ _("Ajouter à ma liste") }}</button></form>
+        </div>
+      </div>
+    {% endfor %}
+    </div>
+    {% if prop.bon_a_savoir %}<p class="bon-a-savoir"><strong>{{ _("Bon à savoir") }}</strong> · {{ prop.bon_a_savoir }}</p>{% endif %}
     {% endif %}
     {% if q.sources %}
     <p class="small" style="margin:8px 0 0">{{ _("Sources :") }} {% for s in q.sources[:5] %}<a href="{{ s.url }}" rel="noopener nofollow" target="_blank">{{ s.titre|truncate(40) }}</a>{{ ", " if not loop.last }}{% endfor %}</p>

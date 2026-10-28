@@ -175,3 +175,41 @@ def demarrer_recherche() -> None:
         except Exception as e:
             log.error("Adresses des magasins : recherche impossible : %s", e)
     threading.Thread(target=tache, name="adresses", daemon=True).start()
+
+
+_proches: dict = {}  # (enseigne, lat, lon) -> magasin le plus proche (ou None), pour ne pas redemander
+
+
+def magasin_proche(enseigne: str, lat: float, lon: float, get: Optional[Callable] = None) -> Optional[dict]:
+    """Le magasin de cette enseigne le plus proche d'un point (OpenStreetMap, dans un rayon d'environ 5 km) :
+    {nom, adresse, code_postal, ville, lat, lon, distance_km}, ou None."""
+    from .openprices import distance_km
+
+    cle = (cle_produit(enseigne), round(lat, 2), round(lon, 2))
+    if cle in _proches:
+        return _proches[cle]
+    mot = (cle_produit(enseigne).split() or [""])[0]
+    url = "https://nominatim.openstreetmap.org/search?" + urllib.parse.urlencode(
+        {"q": enseigne, "format": "jsonv2", "addressdetails": 1, "countrycodes": "fr", "limit": 15, "bounded": 1,
+         "viewbox": f"{lon - 0.07},{lat + 0.045},{lon + 0.07},{lat - 0.045}"})
+    trouve = None
+    try:
+        candidats = []
+        for r in (get or _get)(url):
+            a = r.get("address") or {}
+            if r.get("category") != "shop" or not mot or mot not in cle_produit(r.get("name") or ""):
+                continue
+            p = _position(r.get("lat"), r.get("lon"))
+            if p:
+                candidats.append((distance_km(lat, lon, p["lat"], p["lon"]), r, a, p))
+        if candidats:
+            d, r, a, p = min(candidats, key=lambda c: c[0])
+            trouve = {"nom": r.get("name") or enseigne,
+                      "adresse": " ".join(x for x in (a.get("house_number"), a.get("road")) if x) or None,
+                      "code_postal": a.get("postcode"), "ville": a.get("city") or a.get("town") or a.get("village"),
+                      **p, "distance_km": round(d, 1)}
+    except Exception as e:
+        log.warning("Magasin %s le plus proche : %s", enseigne, e)
+        return None  # pas garde : on reessaiera
+    _proches[cle] = trouve
+    return trouve

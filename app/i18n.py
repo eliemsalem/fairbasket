@@ -282,6 +282,18 @@ EN = {
     "Tapez SUPPRIMER pour confirmer": "Type SUPPRIMER to confirm", "Tout supprimer": "Delete everything",
     "Se déconnecter": "Log out", "Mentions légales": "Legal notice", "Confidentialité": "Privacy", "Conditions": "Terms",
     # assistant
+    "meilleur choix": "best choice", "tout près": "very close", "le plus proche": "nearest", "prix en ligne": "online price",
+    "vous y allez déjà": "you already shop there", "Itinéraire": "Directions", "Voir en ligne": "See online",
+    "Bon à savoir": "Good to know",
+    "Le meilleur choix : {produit} à {prix} chez {enseigne}{ou}.": "Best choice: {produit} at {prix} at {enseigne}{ou}.",
+    "{n} autre(s) choix ci-dessous.": "{n} other choice(s) below.",
+    "Vous le payez d'habitude {prix} chez {enseigne} : chez {meilleur}, vous économisez {gain} ({pct} %) à chaque achat.":
+        "You usually pay {prix} at {enseigne}: at {meilleur}, you save {gain} ({pct}%) each time.",
+    "Dans votre liste, {articles} y sont aussi au meilleur prix : une seule course pour tout.":
+        "On your list, {articles} are also cheapest there: one trip for everything.",
+    "Vous faites déjà vos courses chez {enseigne} : ajoutez-le à votre prochain passage.":
+        "You already shop at {enseigne}: add it to your next trip.",
+    "C'est à environ {minutes} minutes à pied de chez vous.": "It's about a {minutes}-minute walk from you.",
     "Personne n'a encore de prix pour « {q} » autour de vous.": "Nobody has a price for “{q}” near you yet.",
     "Où trouver {q} moins cher près de chez moi ?": "Where can I find cheaper {q} near me?",
     "Chercher les prix en ligne": "Search prices online",

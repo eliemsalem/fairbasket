@@ -118,3 +118,13 @@ textarea{height:auto;min-height:64px;padding:12px 14px;resize:vertical}
 .demander{display:flex;gap:8px}
 .demander input{flex:1;min-width:0}
 .demander .btn{width:auto;padding:0 16px}
+.choix{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:10px;margin-top:10px}
+.choix-carte{display:flex;flex-direction:column;gap:4px;padding:12px;border:1px solid var(--field);border-radius:12px}
+.choix-carte.premier{border:2px solid var(--fg)}
+.choix-tete{display:flex;align-items:center;gap:8px}
+.choix-prix{display:flex;align-items:baseline;gap:8px}
+.choix-prix .mono{font-size:22px;font-weight:700}
+.choix-actions{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.choix-actions .chip{height:34px;padding:0 12px;display:inline-flex;align-items:center;text-decoration:none;font-size:13px}
+.conseil{margin:10px 0 0;font-weight:600}
+.bon-a-savoir{margin:10px 0 0;padding:10px 12px;border-radius:10px;background:var(--soft);font-size:14px}

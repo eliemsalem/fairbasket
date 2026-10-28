@@ -162,3 +162,35 @@ def test_comparer_sans_aucun_prix_propose_la_recherche_en_ligne(client, links):
     assert "Chercher les prix en ligne" in page and 'action="/assistant"' in page
     r = client.post("/assistant", data={"question": "Où trouver pastilles lave-vaisselle moins cher près de chez moi ?"})
     assert r.status_code == 200 and "pastilles" in r.text
+
+
+def test_plusieurs_choix_avec_economie_et_bon_a_savoir(db):
+    from app import liste
+    u = nouvel_utilisateur(db, "a@x.fr")
+    ticket(db, u, 1, "Carrefour", "2026-10-03", [_article("X6 OEUFS CRF BIO", "Œufs bio ×6", 2.49),
+                                                  _article("LAIT", "Lait bio 1 L", 1.10)])
+    ticket(db, u, 2, "Monoprix", "2026-10-15", [_article("OEUFS MPX 6", "Œufs bio ×6", 2.82),
+                                                 _article("LAIT", "Lait bio 1 L", 1.50)])
+    liste.ajouter(db, u, "Lait bio 1 L")
+    q = assistant.demander(db, u, "Où trouver des oeufs bio moins chers ?", ZONE, client=FauxClaude())
+    choix = q.resultats["offres"]
+    assert [o["enseigne"] for o in choix] == ["Carrefour", "Monoprix"] and choix[0]["deja_client"]
+    assert "Monoprix" in q.resultats["conseil"] and "économisez" in q.resultats["conseil"]  # payé d'habitude chez Monoprix
+    assert "Lait bio" in q.resultats["bon_a_savoir"]  # aussi au meilleur prix chez Carrefour
+    assert q.reponse.startswith("Le meilleur choix") and "1 autre choix" in q.reponse
+
+
+def test_claude_donne_ses_choix_par_l_outil_repondre(db):
+    u = nouvel_utilisateur(db, "a@x.fr")
+    finale = SimpleNamespace(type="tool_use", id="r1", name="repondre", input={
+        "resume": "Le moins cher à la pastille : Auchan.", "conseil": "Prenez le format 60.",
+        "offres": [{"enseigne": "Auchan", "produit": "Tout-en-1, 60 pastilles", "prix": 7.9, "prix_unitaire": 0.13,
+                    "unite": "pastille", "source": "web", "url": "https://auchan.example/p"},
+                   {"enseigne": "Monoprix", "produit": "Sun, 40 pastilles", "prix": 7.65, "prix_unitaire": 0.19,
+                    "unite": "pastille", "source": "web", "url": "https://monoprix.example/p"}]})
+    client = FauxClaude(("tool_use", [finale], _usage(web=1)))
+    q = assistant.demander(db, u, "Pastilles lave-vaisselle, c'est où le moins cher ?", ZONE, client=client)
+    assert q.reponse == "Le moins cher à la pastille : Auchan." and q.trouve
+    assert [o["enseigne"] for o in q.resultats["offres"]] == ["Auchan", "Monoprix"]
+    assert q.resultats["conseil"] == "Prenez le format 60." and len(client.appels) == 1
+    assert {s["url"] for s in q.sources} == {"https://auchan.example/p", "https://monoprix.example/p"}
