@@ -194,3 +194,21 @@ def test_claude_donne_ses_choix_par_l_outil_repondre(db):
     assert [o["enseigne"] for o in q.resultats["offres"]] == ["Auchan", "Monoprix"]
     assert q.resultats["conseil"] == "Prenez le format 60." and len(client.appels) == 1
     assert {s["url"] for s in q.sources} == {"https://auchan.example/p", "https://monoprix.example/p"}
+
+
+def test_une_seule_enseigne_connue_on_compare_avec_les_autres(db):
+    u = nouvel_utilisateur(db, "a@x.fr")
+    ticket(db, u, 1, "Monoprix", "2026-10-03", [_article("LESSIVE DOSES", "Lessive en dosettes 3D", 2.92)])
+    finale = SimpleNamespace(type="tool_use", id="r1", name="repondre", input={
+        "resume": "Moins cher chez Lidl.", "offres": [
+            {"enseigne": "Lidl", "produit": "Dosettes lessive x20", "prix": 2.49, "source": "web", "url": "https://lidl.example"},
+            {"enseigne": "Monoprix", "produit": "Lessive en dosettes 3D", "prix": 2.92, "source": "tickets"}]})
+    client = FauxClaude(("tool_use", [finale], _usage(web=1)))
+    q = assistant.demander(db, u, "les pastilles de lessive les moins chères à côté de chez moi", ZONE, client=client)
+    assert "ne connaît des prix que chez Monoprix" in client.appels[0]["messages"][0]["content"]
+    assert q.moteur == "claude" and q.trouve and [o["enseigne"] for o in q.resultats["offres"]] == ["Lidl", "Monoprix"]
+    # sans Claude possible : la reponse du code reste
+    v = nouvel_utilisateur(db, "b@x.fr")
+    ticket(db, v, 2, "Monoprix", "2026-10-03", [_article("LESSIVE DOSES", "Lessive en dosettes 3D", 2.92)])
+    q2 = assistant.demander(db, v, "les pastilles de lessive les moins chères à côté de chez moi", ZONE)
+    assert q2.moteur == "code" and q2.trouve and q2.resultats["offres"][0]["enseigne"] == "Monoprix"

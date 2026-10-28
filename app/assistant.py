@@ -30,7 +30,7 @@ from .recherche import SEUIL, score
 from .tickets import cle_produit
 
 log = logging.getLogger("fairbasket.assistant")
-CONSIGNES_VERSION = "2026-10-28b"
+CONSIGNES_VERSION = "2026-10-28c"  # aussi la version des reponses : une reponse d'une autre version n'est pas reprise
 RAYONS_KM = (config.OPEN_PRICES_PRES_KM, config.OPEN_PRICES_RAYON_KM)  # on elargit si rien n'est trouve pres
 CACHE_HEURES = 24
 
@@ -569,6 +569,7 @@ def _repondre(db: Session, user: User, q: Question, zone: Optional[dict], lang: 
     # 1. la meme question, posee il y a peu par la meme personne : meme reponse, sans rien recalculer
     deja = db.scalar(select(Question).where(
         Question.user_id == user.id, Question.cle == q.cle, Question.trouve.is_(True), Question.intention != "liste",
+        Question.consignes == CONSIGNES_VERSION,
         Question.quand >= datetime.now(timezone.utc) - timedelta(hours=CACHE_HEURES)).order_by(Question.id.desc()))
     if deja is not None and q.cle:
         q.moteur, q.intention, q.parametres = "cache", deja.intention, deja.parametres
@@ -592,16 +593,26 @@ def _repondre(db: Session, user: User, q: Question, zone: Optional[dict], lang: 
         q.etapes = [{"outil": NOM_OUTIL[intention], "entree": parametres, "trouve": bool(res.get("trouve")),
                      "nb": len(res.get("offres") or []) if "offres" in res else None,
                      "duree_ms": int((time.monotonic() - debut) * 1000)}]
+        q.consignes = CONSIGNES_VERSION
+        enseignes = set()
         if intention == "prix" and res.get("trouve"):
             res["proposition"] = proposer(db, user, zone, res["offres"], lang)
             q.resultats = en_json(res["proposition"])
-        if res.get("trouve") or intention != "prix":
-            q.reponse, q.trouve = rediger(intention, parametres, res, lang), bool(res.get("trouve"))
+            enseignes = {o.get("enseigne") for o in res["proposition"]["offres"] if o.get("enseigne")}
+        q.reponse, q.trouve = rediger(intention, parametres, res, lang), bool(res.get("trouve"))
+        # une comparaison se fait entre enseignes : avec une seule (ou aucune), on cherche les autres en ligne
+        if intention != "prix" or len(enseignes) >= 2 or claude_possible(db, user, client) is not None:
             return
-        # un prix que l'app ne connait pas : Claude peut le chercher sur le web
-        note = (f"chercher_prix a déjà été appelé pour « {parametres['produit']} » et n'a rien trouvé : "
-                "inutile de le rappeler, cherche sur le web.")
-        q.reponse = rediger(intention, parametres, res, lang)  # si Claude n'est pas possible
+        if enseignes:
+            connus = "; ".join(f"{o['produit']} à {o['prix']} € chez {o.get('enseigne')} ({o['source']}, {o.get('date') or '?'})"
+                               for o in res["proposition"]["offres"])
+            note = (f"chercher_prix a déjà été appelé pour « {parametres['produit']} » : l'app ne connaît des prix que "
+                    f"chez {', '.join(sorted(enseignes))} : {connus}. Cherche sur le web le prix de ce produit dans "
+                    "d'autres enseignes proches pour comparer, puis réponds avec repondre en gardant les prix de "
+                    "l'app qui correspondent vraiment au produit demandé (source tickets).")
+        else:
+            note = (f"chercher_prix a déjà été appelé pour « {parametres['produit']} » et n'a rien trouvé : "
+                    "inutile de le rappeler, cherche sur le web.")
 
     # 3. Claude, en secours
     raison = claude_possible(db, user, client)
@@ -615,7 +626,7 @@ def _repondre(db: Session, user: User, q: Question, zone: Optional[dict], lang: 
     q.recherches_web, q.cout_usd = c["web"], cout_usd(c["modele"], *c["tokens"], c["web"])
     q.etapes = (q.etapes or []) + c["etapes"]
     q.sources = c["sources"] or None
-    q.trouve = c["trouve"]
+    q.trouve = q.trouve or c["trouve"]
     if c["texte"]:
         q.reponse = c["texte"]
     if c["finale"] and c["finale"].get("offres"):
