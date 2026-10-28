@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block title %}FairBasket — {{ _("Demandez-moi") }}{% endblock %}
+{% block body %}
+<main class="screen with-nav" style="gap:18px">
+  <a class="small" href="/accueil">‹ {{ _("Accueil") }}</a>
+  <h1 style="font-size:24px">{{ _("Demandez-moi") }}</h1>
+  <p class="lede" style="margin:0">{{ _("Où acheter moins cher, ce que vous dépensez, votre liste : posez votre question comme vous la diriez.") }}</p>
+
+  <form method="post" action="/assistant" id="demande" style="gap:10px">
+    <label class="visually-hidden" for="question">{{ _("Votre question") }}</label>
+    <textarea id="question" name="question" rows="2" maxlength="500" required placeholder="{{ _(exemples[0]) }}"></textarea>
+    <button class="btn" type="submit" id="envoyer">{{ _("Demander") }}</button>
+    <span class="small" id="patience" hidden>{{ _("Je cherche… cela peut prendre quelques secondes.") }}</span>
+  </form>
+  {% if not historique %}
+  <div class="exemples">{% for e in exemples %}<button type="button" class="chip" data-q="{{ _(e) }}">{{ _(e) }}</button>{% endfor %}</div>
+  {% endif %}
+
+  {% for q in historique %}
+  <article class="card reponse" id="q{{ q.id }}"{% if derniere == q.id %} aria-live="polite"{% endif %}>
+    <p class="small" style="margin:0"><strong>{{ q.texte }}</strong></p>
+    <p style="margin:8px 0 0;white-space:pre-line">{{ q.reponse }}</p>
+    {% if q.resultats %}
+    <details style="margin-top:8px"><summary class="small">{{ _("Voir les {n} prix trouvés", n=q.resultats|length) }}</summary>
+      <div class="rows" style="margin-top:6px">{% for o in q.resultats|sort(attribute='prix') %}
+        <div class="row"><span class="grow">{{ o.produit }}<br><span class="small">{{ _(o.enseigne) if o.enseigne else o.magasin }}{% if o.distance_km is not none %} · {{ o.distance_km }} km{% endif %} · {{ {"tickets": _("vos tickets"), "communaute": _("autres utilisateurs"), "open_prices": "Open Prices"}[o.source] }}{% if o.date %} · {{ o.date[8:10] }}/{{ o.date[5:7] }}{% endif %}</span></span>
+        <span class="mono">{% if o.prix_kilo is defined and o.prix_kilo is not none %}{{ o.prix_kilo|euros }} / {{ o.unite }}{% else %}{{ o.prix|euros }}{% if o.unite %} / {{ _(o.unite) }}{% endif %}{% endif %}</span></div>
+      {% endfor %}</div>
+    </details>
+    {% endif %}
+    {% if q.sources %}
+    <p class="small" style="margin:8px 0 0">{{ _("Sources :") }} {% for s in q.sources[:5] %}<a href="{{ s.url }}" rel="noopener nofollow" target="_blank">{{ s.titre|truncate(40) }}</a>{{ ", " if not loop.last }}{% endfor %}</p>
+    {% endif %}
+    {% if q.intention == "panier" %}<a class="btn ghost" style="margin-top:8px" href="/liste/comparer?habituel=1">{{ _("Où faire mes courses") }}</a>{% endif %}
+    {% if q.intention == "prix" and not q.trouve and q.parametres %}
+    <form method="post" action="/liste" style="margin-top:8px"><input type="hidden" name="nom" value="{{ q.parametres.produit }}"><button class="btn ghost" type="submit">{{ _("Ajouter à ma liste") }}</button></form>
+    {% endif %}
+    {% if q.note is none %}
+    <form method="post" action="/assistant/{{ q.id }}/avis" class="avis-reponse">
+      <span class="small">{{ _("Utile ?") }}</span>
+      <button class="chip" name="note" value="1" type="submit" aria-label="{{ _('Utile') }}">👍</button>
+      <button class="chip" name="note" value="-1" type="submit" aria-label="{{ _('Pas utile') }}">👎</button>
+    </form>
+    {% else %}<p class="small" style="margin:8px 0 0">{{ _("Merci pour votre avis.") }}</p>{% endif %}
+  </article>
+  {% endfor %}
+
+  {% if reste is not none %}<p class="small">{{ _("Questions avancées restantes ce mois-ci : {n}. Les questions simples sont illimitées.", n=reste) }}</p>{% endif %}
+</main>
+{% with actif='accueil' %}{% include "_nav.html" %}{% endwith %}
+<script>
+document.querySelectorAll(".exemples .chip").forEach(function (b) {
+  b.addEventListener("click", function () { document.getElementById("question").value = b.dataset.q; document.getElementById("demande").requestSubmit(); });
+});
+document.getElementById("demande").addEventListener("submit", function () {
+  document.getElementById("envoyer").disabled = true; document.getElementById("patience").hidden = false;
+});
+document.getElementById("question").addEventListener("keydown", function (e) {
+  if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); this.form.requestSubmit(); }
+});
+</script>
+{% endblock %}

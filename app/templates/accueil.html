@@ -10,6 +10,14 @@
     </div>
   </div>
 
+  {% if assistant_ok %}
+  <form method="post" action="/assistant" class="demander" role="search">
+    <label class="visually-hidden" for="question">{{ _("Demandez-moi") }}</label>
+    <input id="question" name="question" type="text" maxlength="500" required placeholder="{{ _('Demandez-moi : où acheter moins cher…') }}">
+    <button class="btn" type="submit">{{ _("Demander") }}</button>
+  </form>
+  {% endif %}
+
   {% if a_corriger %}
   <a class="card" href="/tickets/{{ a_corriger[0].id }}" style="text-decoration:none;border:2px solid var(--fg)"><strong>{{ _("{n} ticket(s) à vérifier", n=a_corriger|length) }}</strong><br><span class="small">{{ _("La somme des articles ne correspond pas au total.") }}</span></a>
   {% endif %}

@@ -23,7 +23,7 @@ h2{margin:0;font-size:16px;font-weight:700}
 form{display:flex;flex-direction:column;gap:16px;margin:0}
 .field{display:flex;flex-direction:column;gap:6px}
 .field label{font-size:14px;font-weight:600}
-input[type=text],input[type=email],select{height:48px;border:1px solid var(--field);border-radius:10px;padding:0 14px;font:inherit;color:var(--fg);background:var(--bg)}
+input[type=text],input[type=email],select,textarea{height:48px;border:1px solid var(--field);border-radius:10px;padding:0 14px;font:inherit;color:var(--fg);background:var(--bg)}
 .check{display:flex;gap:12px;align-items:flex-start;font-size:14px;line-height:1.45;cursor:pointer}
 .check input{width:20px;height:20px;margin:0;accent-color:var(--fg);flex:none}
 .check.sep{border-top:1px solid var(--line);padding-top:12px}
@@ -109,3 +109,12 @@ details.renommer summary::-webkit-details-marker{display:none}
 .pastille-bio{height:28px;padding:0 10px;border-radius:999px;border:1px solid var(--field);background:transparent;color:var(--muted);font:inherit;font-size:12px;font-weight:700;cursor:pointer;flex:none}
 .pastille-bio[aria-pressed="true"]{background:var(--bio);border-color:var(--bio);color:var(--on-fg)}
 .check.manquante{outline:2px solid var(--danger);outline-offset:-2px}
+
+textarea{height:auto;min-height:64px;padding:12px 14px;resize:vertical}
+.exemples{display:flex;flex-wrap:wrap;gap:8px}
+.exemples .chip{height:auto;min-height:40px;padding:8px 14px;text-align:left}
+.avis-reponse{display:flex;flex-direction:row;align-items:center;gap:8px;margin-top:10px}
+.avis-reponse .chip{height:36px;padding:0 12px}
+.demander{display:flex;gap:8px}
+.demander input{flex:1;min-width:0}
+.demander .btn{width:auto;padding:0 16px}

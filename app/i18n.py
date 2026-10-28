@@ -281,6 +281,39 @@ EN = {
         "Your receipts, their files and your account will be permanently deleted. Prices already shared anonymously remain, with no link to you.",
     "Tapez SUPPRIMER pour confirmer": "Type SUPPRIMER to confirm", "Tout supprimer": "Delete everything",
     "Se déconnecter": "Log out", "Mentions légales": "Legal notice", "Confidentialité": "Privacy", "Conditions": "Terms",
+    # assistant
+    "Demandez-moi": "Ask me", "Demander": "Ask", "Où faire mes courses": "Where to shop", "Votre question": "Your question",
+    "Demandez-moi : où acheter moins cher…": "Ask me: where to buy cheaper…",
+    "Où acheter moins cher, ce que vous dépensez, votre liste : posez votre question comme vous la diriez.":
+        "Where to buy cheaper, what you spend, your list: ask the way you would say it.",
+    "Je cherche… cela peut prendre quelques secondes.": "Searching… this can take a few seconds.",
+    "Où trouver des pastilles lave-vaisselle moins chères ?": "Where can I find cheaper dishwasher tablets?",
+    "Combien j'ai dépensé en fromage ce mois-ci ?": "How much did I spend on cheese this month?",
+    "Ajoute du lait à ma liste": "Add milk to my list",
+    "Voir les {n} prix trouvés": "See the {n} prices found", "vos tickets": "your receipts",
+    "autres utilisateurs": "other users", "Sources :": "Sources:", "Ajouter à ma liste": "Add to my list",
+    "Utile ?": "Helpful?", "Utile": "Helpful", "Pas utile": "Not helpful", "Merci pour votre avis.": "Thanks for your feedback.",
+    "Questions avancées restantes ce mois-ci : {n}. Les questions simples sont illimitées.":
+        "Advanced questions left this month: {n}. Simple questions are unlimited.",
+    "C'est noté : « {produit} » est dans votre liste.": "Done: “{produit}” is on your list.",
+    "ce mois-ci": "this month", "sur les 12 derniers mois": "over the last 12 months",
+    "Rayon {rayon} : {total} {periode}.": "{rayon}: {total} {periode}.",
+    "Je ne trouve pas « {produit} » dans vos tickets {periode}.": "I can't find “{produit}” in your receipts {periode}.",
+    "« {produit} » : {total} {periode}, en {n} achat(s).": "“{produit}”: {total} {periode}, in {n} purchase(s).",
+    "Vous avez dépensé {total} {periode}, en {n} ticket(s).": "You spent {total} {periode}, over {n} receipt(s).",
+    "({signe}{evolution} % par rapport à la période précédente)": "({signe}{evolution}% compared with the previous period)",
+    "Je ne connais pas encore de prix pour « {produit} » près de chez vous. Ajoutez-le à votre liste : dès que vous ou quelqu'un d'autre l'achetez, l'app vous dira où c'est le moins cher.":
+        "I don't know any price for “{produit}” near you yet. Add it to your list: as soon as you or someone else buys it, the app will tell you where it's cheapest.",
+    "Dans vos tickets, le moins cher : {produit} à {prix} chez {enseigne} (le {date}).":
+        "In your receipts, the cheapest: {produit} at {prix} at {enseigne} (on {date}).",
+    "D'autres utilisateurs l'ont payé {prix} chez {enseigne} ({magasin}).": "Other users paid {prix} at {enseigne} ({magasin}).",
+    "Autour de chez vous (Open Prices, moins de {km} km) : {produit} à {prix} chez {magasin}, relevé le {date}.":
+        "Near you (Open Prices, within {km} km): {produit} at {prix} at {magasin}, recorded on {date}.",
+    "Pour votre panier habituel, ouvrez « Où faire mes courses » : l'app y compare ce que vous achetez d'habitude dans chaque enseigne autour de chez vous.":
+        "For your usual basket, open “Where to shop”: the app compares what you usually buy in each store near you.",
+    "Désolé, je n'ai pas pu répondre. Réessayez dans un instant.": "Sorry, I couldn't answer. Please try again in a moment.",
+    "Je n'ai pas compris. Essayez par exemple : « Où trouver des œufs bio moins chers ? », « Combien j'ai dépensé en fromage ce mois-ci ? » ou « Ajoute du lait à ma liste ».":
+        "I didn't understand. Try for example: “Where can I find cheaper organic eggs?”, “How much did I spend on cheese this month?” or “Add milk to my list”.",
     # rayon
     "Touchez un rayon pour voir ce que vous y achetez. Évolution par rapport à {mois}.":
         "Tap an aisle to see what you buy there. Change compared with {mois}.",

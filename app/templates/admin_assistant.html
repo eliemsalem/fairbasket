@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block title %}FairBasket — Assistant{% endblock %}
+{% block body %}
+<main class="screen admin" style="max-width:1100px">
+  <div class="topbar"><a href="/admin">← Administration</a></div>
+  <h1>Assistant</h1>
+  <p class="small">Accès : <strong>{{ pour }}</strong> (ASSISTANT_POUR : admin, testeurs ou tous) · moteur : <strong>{{ moteur }}</strong> (ASSISTANT_MOTEUR : claude ou code) · Claude ce mois : <strong>{{ "%.2f"|format(depense) }} $</strong> sur {{ "%.0f"|format(budget) }} $ (ASSISTANT_BUDGET_USD) · expressions apprises : <strong>{{ appris }}</strong></p>
+
+  <div class="kpis">
+    <div class="card"><span class="small">Questions</span><strong>{{ s.chiffres.questions }}</strong></div>
+    <div class="card"><span class="small">Abouties</span><strong>{{ s.chiffres.trouvees if s.chiffres.trouvees is not none else "—" }} %</strong></div>
+    <div class="card"><span class="small">Sans Claude</span><strong>{{ s.chiffres.sans_claude if s.chiffres.sans_claude is not none else "—" }} %</strong><span class="small">à faire monter</span></div>
+    <div class="card"><span class="small">👍 / 👎</span><strong>{{ s.chiffres.utiles }} / {{ s.chiffres.pas_utiles }}</strong></div>
+    <div class="card"><span class="small">Recherches web</span><strong>{{ s.chiffres.web }}</strong></div>
+    <div class="card"><span class="small">Temps moyen</span><strong>{{ s.chiffres.duree if s.chiffres.duree is not none else "—" }} s</strong></div>
+  </div>
+
+  <div class="deux">
+    <section><h2>Qui a compris la question</h2>
+      <table><tbody>{% for m, n in s.moteurs %}<tr><td>{{ {"code": "Code (règles)", "appris": "Code (appris de Claude)", "cache": "Déjà répondu (24 h)", "claude": "Claude"}.get(m, m) }}</td><td class="mono">{{ n }}</td></tr>{% endfor %}</tbody></table></section>
+    <section><h2>Ce qu'on demande</h2>
+      <table><tbody>{% for i, n in s.intentions %}<tr><td>{{ i }}</td><td class="mono">{{ n }}</td></tr>{% endfor %}</tbody></table></section>
+  </div>
+
+  <section><h2>Sans réponse : la liste de travail</h2>
+    {% if s.sans_reponse %}<div class="defile"><table><thead><tr><th>Quand</th><th>Question</th><th>Moteur</th><th>Compris</th><th>Pourquoi</th></tr></thead><tbody>
+    {% for q in s.sans_reponse %}<tr><td>{{ q.quand.strftime('%d/%m %H:%M') }}</td><td>{{ q.texte }}</td><td>{{ q.moteur }}</td><td class="small">{{ q.intention or "—" }} {{ q.parametres|tojson if q.parametres else "" }}</td><td class="small">{{ q.erreur or "rien trouvé" }}</td></tr>{% endfor %}
+    </tbody></table></div>{% else %}<p class="lede">Rien pour l'instant.</p>{% endif %}
+  </section>
+
+  <section><h2>Jugées pas utiles</h2>
+    {% if s.pas_utiles %}<div class="defile"><table><thead><tr><th>Question</th><th>Réponse</th><th>Commentaire</th></tr></thead><tbody>
+    {% for q in s.pas_utiles %}<tr><td>{{ q.texte }}</td><td class="small" style="white-space:pre-line">{{ q.reponse|truncate(300) }}</td><td class="small">{{ q.commentaire or "" }}</td></tr>{% endfor %}
+    </tbody></table></div>{% else %}<p class="lede">Aucune.</p>{% endif %}
+  </section>
+
+  <section><h2>Les plus posées</h2>
+    <table><tbody>{% for cle, n in s.frequentes %}<tr><td>{{ cle }}</td><td class="mono">{{ n }}</td></tr>{% endfor %}</tbody></table>
+  </section>
+
+  <section><h2>Dernières questions</h2>
+    <div class="defile"><table><thead><tr><th>Quand</th><th>Question</th><th>Moteur</th><th>Outils</th><th>Trouvé</th><th>Coût</th><th>Durée</th><th>Avis</th></tr></thead><tbody>
+    {% for q in s.dernieres %}<tr><td>{{ q.quand.strftime('%d/%m %H:%M') }}</td><td>{{ q.texte }}</td><td>{{ q.moteur }}</td>
+      <td class="small">{% for e in q.etapes or [] %}{{ e.outil }}{% if e.nb is not none %} ({{ e.nb }}){% endif %}{{ ", " if not loop.last }}{% endfor %}</td>
+      <td>{{ "oui" if q.trouve else "non" }}</td><td class="mono">{{ "%.4f"|format(q.cout_usd) }} $</td><td class="mono">{{ "%.1f"|format(q.duree_ms / 1000) }} s</td><td>{{ {1: "👍", -1: "👎"}.get(q.note, "") }}</td></tr>{% endfor %}
+    </tbody></table></div>
+  </section>
+
+  <section><h2>Exporter la base</h2>
+    <p class="small">Toutes les questions, avec ce que l'assistant a compris, les outils, la réponse, le coût et l'avis (une ligne JSON par question, sans l'identité des personnes) : de quoi bâtir un jeu de test ou entraîner un modèle.</p>
+    <a class="btn ghost" href="/admin/export/questions.jsonl">Télécharger questions.jsonl</a>
+  </section>
+</main>
+{% endblock %}

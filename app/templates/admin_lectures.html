@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block title %}FairBasket — Lecture des tickets{% endblock %}
+{% block body %}
+<main class="screen admin" style="max-width:1100px">
+  <div class="topbar"><a href="/admin">← Administration</a></div>
+  <h1>Lecture des tickets</h1>
+  <p class="small">Chaque ticket lu, réussi ou non : le fichier, ce qui a été lu, et ce que la personne a corrigé ensuite. L'écart entre « lu » et « corrigé » est ce qu'il faut apprendre.</p>
+
+  <div class="kpis">
+    <div class="card"><span class="small">Lectures</span><strong>{{ s.chiffres.lectures }}</strong></div>
+    <div class="card"><span class="small">Justes du premier coup</span><strong>{{ s.chiffres.reussies }}</strong></div>
+    <div class="card"><span class="small">Total faux</span><strong>{{ s.chiffres.a_verifier }}</strong></div>
+    <div class="card"><span class="small">Ratées</span><strong>{{ s.chiffres.ratees }}</strong></div>
+    <div class="card"><span class="small">Corrigées ensuite</span><strong>{{ s.chiffres.corrigees }}</strong></div>
+    <div class="card"><span class="small">Lues sans IA</span><strong>{{ s.chiffres.sans_ia if s.chiffres.sans_ia is not none else "—" }} %</strong><span class="small">à faire monter</span></div>
+    <div class="card"><span class="small">Coût ce mois</span><strong>{{ "%.2f"|format(s.chiffres.cout_mois) }} $</strong></div>
+    <div class="card"><span class="small">Temps moyen</span><strong>{{ s.chiffres.duree if s.chiffres.duree is not none else "—" }} s</strong></div>
+  </div>
+
+  <section><h2>Par méthode</h2>
+    <table><thead><tr><th>Méthode</th><th>Justes</th><th>Total faux</th><th>Illisibles</th><th>Erreurs</th><th>Doublons</th></tr></thead><tbody>
+    {% for m, r in s.methodes %}<tr><td>{{ m }}</td>{% for k in ("ok", "ecart", "illisible", "erreur", "doublon") %}<td class="mono">{{ r[k] or "" }}</td>{% endfor %}</tr>{% endfor %}
+    </tbody></table>
+  </section>
+
+  <section><h2>À étudier</h2>
+    <p class="small">Ratées, total faux ou corrigées par la personne : les exemples les plus utiles.</p>
+    {% if s.a_etudier %}<div class="defile"><table><thead><tr><th>Quand</th><th>Source</th><th>Enseigne</th><th>Méthode</th><th>Résultat</th><th>Articles</th><th>Écart</th><th>Corrections</th><th>Message</th><th>Fichier</th></tr></thead><tbody>
+    {% for l in s.a_etudier %}<tr><td>{{ l.quand.strftime('%d/%m %H:%M') }}</td><td>{{ l.source }}{% if l.nb_fichiers > 1 %} ×{{ l.nb_fichiers }}{% endif %}{% if l.largeur %}<br><span class="small">{{ l.largeur }}×{{ l.hauteur }}</span>{% endif %}</td>
+      <td>{{ l.enseigne or "—" }}</td><td>{{ l.methode or "—" }}</td><td>{{ l.resultat }}</td><td class="mono">{{ l.nb_articles }}{% if l.nb_illisibles %} ({{ l.nb_illisibles }} ill.){% endif %}</td>
+      <td class="mono">{{ "%.2f"|format(l.ecart) if l.ecart is not none else "" }}</td><td class="mono">{{ l.nb_corrections or "" }}</td><td class="small">{{ l.message or "" }}</td>
+      <td>{% if l.fichier_chemin %}<a href="/admin/lectures/{{ l.id }}/fichier" target="_blank">voir</a>{% endif %}</td></tr>{% endfor %}
+    </tbody></table></div>{% else %}<p class="lede">Rien pour l'instant.</p>{% endif %}
+  </section>
+
+  <section><h2>Exporter la base</h2>
+    <p class="small">Une ligne JSON par lecture : ce qui a été lu (« lu »), le ticket corrigé (« corrige »), la méthode, le modèle, le coût, la durée et le chemin du fichier. Sans l'identité des personnes.</p>
+    <a class="btn ghost" href="/admin/export/lectures.jsonl">Télécharger lectures.jsonl</a>
+  </section>
+</main>
+{% endblock %}

@@ -139,12 +139,13 @@ def zone_de(db: Session, user: User, position: Optional[tuple] = None) -> dict:
             "ville": config.OPEN_PRICES_VILLE}
 
 
-def proches(prix: list, zone: Optional[dict]) -> list:
-    """Les prix des magasins a moins de PRES_KM de la zone (un prix sans position est garde)."""
+def proches(prix: list, zone: Optional[dict], km: Optional[float] = None) -> list:
+    """Les prix des magasins a moins de PRES_KM (ou km) de la zone (un prix sans position est garde)."""
     if not zone:
         return list(prix)
+    km = km or config.OPEN_PRICES_PRES_KM
     return [p for p in prix if p.lat is None or p.lon is None
-            or distance_km(zone["lat"], zone["lon"], p.lat, p.lon) <= config.OPEN_PRICES_PRES_KM]
+            or distance_km(zone["lat"], zone["lon"], p.lat, p.lon) <= km]
 
 
 def zone_en_copie(db: Session, zone: dict) -> bool:
@@ -206,7 +207,8 @@ def demarrer_synchro_quotidienne() -> None:
     threading.Thread(target=boucle, name="open-prices", daemon=True).start()
 
 
-def chercher(db: Session, requete: str, limite: int = 8, zone: Optional[dict] = None) -> list:
+def chercher(db: Session, requete: str, limite: int = 8, zone: Optional[dict] = None,
+             km: Optional[float] = None) -> list:
     """Prix releves pres de la zone de la personne pour ce qu'elle cherche. Ordre : les plus pertinents, puis
     ceux dont le nom commence par le mot cherche (« saumon fume » avant « tagliatelles au saumon »),
     puis les moins chers au kilo. Un seul prix par produit et par magasin (le plus recent)."""
@@ -217,7 +219,7 @@ def chercher(db: Session, requete: str, limite: int = 8, zone: Optional[dict] = 
     if not premier:
         return []
     vus, resultats = set(), []
-    for p in proches(db.scalars(select(OpenPrice).order_by(OpenPrice.jour.desc())).all(), zone):
+    for p in proches(db.scalars(select(OpenPrice).order_by(OpenPrice.jour.desc())).all(), zone, km):
         s = score(requete, p.nom, p.marque or "")
         cle = (p.nom.lower(), p.magasin, p.ville)
         if s < SEUIL or cle in vus:

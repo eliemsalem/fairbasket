@@ -64,3 +64,19 @@ OPEN_PRICES_PRES_KM = float(os.environ.get("OPEN_PRICES_PRES_KM", "5"))
 OPEN_PRICES_JOURS = 90
 ADRESSES_AUTO = os.environ.get("ADRESSES_AUTO", "1") == "1"  # adresse des magasins cherchee toute seule (OSM, BAN)
 OPEN_PRICES_AUTO = os.environ.get("OPEN_PRICES_AUTO", "1") == "1"  # synchronisation quotidienne en tache de fond
+
+# Assistant (« Demandez-moi ») : le code comprend d'abord la question, Claude seulement en secours.
+# ASSISTANT_MOTEUR : « claude » (code puis Claude si besoin) ou « code » (jamais Claude, gratuit)
+ASSISTANT_MOTEUR = os.environ.get("ASSISTANT_MOTEUR", "claude")
+# qui y a acces : « admin », « testeurs » (admin + ASSISTANT_TESTEURS) ou « tous »
+ASSISTANT_POUR = os.environ.get("ASSISTANT_POUR", "admin")
+ASSISTANT_TESTEURS = {e.strip().lower() for e in os.environ.get("ASSISTANT_TESTEURS", "").split(",") if e.strip()}
+ASSISTANT_MODELE = os.environ.get("ASSISTANT_MODELE", "claude-haiku-5-5")
+ASSISTANT_QUESTIONS_PAR_MOIS = int(os.environ.get("ASSISTANT_QUESTIONS_PAR_MOIS", "30"))  # questions passees par Claude
+ASSISTANT_BUDGET_USD = float(os.environ.get("ASSISTANT_BUDGET_USD", "10"))  # par mois, pour tout le monde
+ASSISTANT_WEB = os.environ.get("ASSISTANT_WEB", "1") == "1"  # recherche web quand l'app ne connait aucun prix
+# bases d'apprentissage (questions, lectures de tickets) : duree de conservation
+APPRENTISSAGE_JOURS = int(os.environ.get("APPRENTISSAGE_JOURS", "365"))
+# prix publics des modeles, en dollars par million de jetons (entree, sortie) ; recherche web : 0,01 $
+PRIX_MODELES = {"haiku-5": (0.10, 0.50), "haiku-4": (1.0, 5.0), "sonnet": (3.0, 15.0), "opus": (5.0, 25.0)}
+PRIX_RECHERCHE_WEB = 0.01

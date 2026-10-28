@@ -14,17 +14,17 @@ from urllib.parse import quote
 from decimal import Decimal
 
 from fastapi import Depends, FastAPI, File, Form, HTTPException, Request, UploadFile
-from fastapi.responses import HTMLResponse, RedirectResponse, Response
+from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse, Response, StreamingResponse
 from fastapi.concurrency import run_in_threadpool
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
 
-from . import adresses, auth, config, i18n, liste, openprices, panier, stats, suivi, tickets
+from . import adresses, apprentissage, assistant, auth, config, i18n, liste, openprices, panier, stats, suivi, tickets
 from .db import SessionLocal, get_db, init_db
 from .lecture import CATEGORIES
-from .models import Avis, OpenPrice, Product, Receipt, ReceiptItem, ShoppingItem, Store, User, now
+from .models import Avis, LectureTicket, OpenPrice, Question, Product, Receipt, ReceiptItem, ShoppingItem, Store, User, now
 
 APP_DIR = config.ROOT / "app"
 
@@ -60,6 +60,7 @@ async def lifespan(_app):
         adresses.demarrer_recherche()
     with SessionLocal() as db:
         suivi.purger(db)
+        apprentissage.purger(db)
     if config.INSCRIPTION_LIBRE:
         threading.Thread(target=_accepter_la_liste_d_attente, name="liste-attente", daemon=True).start()
     yield
@@ -306,7 +307,8 @@ def accueil(request: Request, periode: str = "an", user: User = Depends(require_
                          .order_by(Receipt.achete_le.desc(), Receipt.id.desc()).limit(10)).all()
     a_corriger = db.scalars(select(Receipt).where(Receipt.user_id == user.id, Receipt.statut == "ecart")).all()
     return page(request, "accueil.html", user=user, admin=auth.is_admin(user), recents=recents,
-                a_corriger=a_corriger, t=stats.tableau_de_bord(db, user, periode))
+                a_corriger=a_corriger, t=stats.tableau_de_bord(db, user, periode),
+                assistant_ok=assistant.peut_utiliser(user))
 
 
 @app.get("/rayon", response_class=HTMLResponse)
@@ -557,6 +559,7 @@ async def ticket_corriger(request: Request, receipt_id: int, user: User = Depend
               for it in r.items}
     nouvelle = (str(form.get("libelle_new", "")).strip(), tickets.montant_saisi(str(form.get("montant_new", ""))))
     tickets.corriger_ticket(db, user, r, lignes, nouvelle)
+    apprentissage.figer(db, r)
     return RedirectResponse(f"/tickets/{r.id}", status_code=303)
 
 
@@ -565,6 +568,7 @@ def ticket_magasin(receipt_id: int, enseigne: str = Form(""), magasin: str = For
                    user: User = Depends(require_user), db: Session = Depends(get_db)):
     r = _ticket_de(db, user, receipt_id)
     tickets.changer_magasin(db, r, enseigne, magasin)
+    apprentissage.figer(db, r)
     return RedirectResponse(f"/tickets/{r.id}", status_code=303)
 
 
@@ -576,6 +580,7 @@ def ticket_produit(receipt_id: int, item_id: int, nom: str = Form(""), retour: s
     if item is None:
         raise HTTPException(status_code=404)
     produit = tickets.renommer_produit(db, item, nom)
+    apprentissage.figer(db, r)
     suivi.noter(user.id, "produit_renomme", "/tickets/{receipt_id}", f"{item.libelle} → {nom[:80]}")
     suite = f"?retour={quote(retour)}" if retour.startswith("/") and not retour.startswith("//") else ""
     return RedirectResponse(f"/tickets/{r.id}{suite}#p{produit.id if produit else ''}", status_code=303)
@@ -592,6 +597,7 @@ def ticket_bio(receipt_id: int, item_id: int, retour: str = Form(""), user: User
     nom = item.product.nom if item.product else item.libelle.capitalize()
     nom = tickets.sans_bio(nom) if tickets.nom_bio(nom) else tickets.avec_bio(nom)
     produit = tickets.renommer_produit(db, item, nom)
+    apprentissage.figer(db, r)
     suivi.noter(user.id, "produit_renomme", "/tickets/{receipt_id}", f"{item.libelle} → {nom[:80]}")
     suite = f"?retour={quote(retour)}" if retour.startswith("/") and not retour.startswith("//") else ""
     return RedirectResponse(f"/tickets/{r.id}{suite}#p{produit.id if produit else ''}", status_code=303)
@@ -605,6 +611,7 @@ def ticket_rayon(receipt_id: int, item_id: int, categorie: str = Form(""), retou
     if item is None:
         raise HTTPException(status_code=404)
     if tickets.changer_rayon(db, item, categorie):
+        apprentissage.figer(db, r)
         suivi.noter(user.id, "rayon_change", "/tickets/{receipt_id}", f"{item.libelle} → {categorie}")
     suite = f"?retour={quote(retour)}" if retour.startswith("/") and not retour.startswith("//") else ""
     return RedirectResponse(f"/tickets/{r.id}{suite}#p{item.product_id or ''}", status_code=303)
@@ -615,6 +622,7 @@ def ticket_adresse(receipt_id: int, adresse: str = Form(""), code_postal: str = 
                    user: User = Depends(require_user), db: Session = Depends(get_db)):
     r = _ticket_de(db, user, receipt_id)
     tickets.confirmer_adresse(db, r, adresse, code_postal, ville)
+    apprentissage.figer(db, r)
     return RedirectResponse(f"/tickets/{r.id}", status_code=303)
 
 
@@ -657,6 +665,51 @@ def avis_envoi(request: Request, message: str = Form(""), de: str = Form(""), re
     return RedirectResponse(f"/avis?merci=1&retour={_retour_sur(retour)}", status_code=303)
 
 
+# --- Assistant « Demandez-moi » -------------------------------------------------
+
+EXEMPLES_QUESTIONS = ("Où trouver des pastilles lave-vaisselle moins chères ?",
+                      "Combien j'ai dépensé en fromage ce mois-ci ?", "Ajoute du lait à ma liste")
+
+
+def _assistant_pour(user: User) -> User:
+    if not assistant.peut_utiliser(user):
+        raise HTTPException(status_code=404)
+    return user
+
+
+@app.get("/assistant", response_class=HTMLResponse)
+def assistant_page(request: Request, q: Optional[int] = None, user: User = Depends(require_user),
+                   db: Session = Depends(get_db)):
+    _assistant_pour(user)
+    historique = db.scalars(select(Question).where(Question.user_id == user.id)
+                            .order_by(Question.id.desc()).limit(10)).all()
+    return page(request, "assistant.html", user=user, historique=historique, derniere=q,
+                exemples=EXEMPLES_QUESTIONS, reste=None if auth.is_admin(user) else max(
+                    0, config.ASSISTANT_QUESTIONS_PAR_MOIS - assistant.questions_claude_du_mois(db, user)))
+
+
+@app.post("/assistant")
+def assistant_question(request: Request, question: str = Form(""), user: User = Depends(require_user),
+                       db: Session = Depends(get_db)):
+    _assistant_pour(user)
+    if not question.strip():
+        return RedirectResponse("/assistant", status_code=303)
+    q = assistant.demander(db, user, question, _zone(request, db, user), langue(request))
+    suivi.noter(user.id, "question", "/assistant", f"{q.moteur} · {q.intention or '—'} · "
+                                                   f"{'trouvé' if q.trouve else 'rien'}")
+    return RedirectResponse(f"/assistant?q={q.id}#q{q.id}", status_code=303)
+
+
+@app.post("/assistant/{question_id}/avis")
+def assistant_avis(question_id: int, note: int = Form(0), commentaire: str = Form(""),
+                   user: User = Depends(require_user), db: Session = Depends(get_db)):
+    q = db.get(Question, question_id)
+    if q is None or q.user_id != user.id:
+        raise HTTPException(status_code=404)
+    assistant.noter_avis(db, q, note, commentaire)
+    return RedirectResponse(f"/assistant?q={q.id}#q{q.id}", status_code=303)
+
+
 # --- Administration --------------------------------------------------------------
 
 @app.get("/admin", response_class=HTMLResponse)
@@ -676,6 +729,40 @@ def admin_utilisateur(request: Request, user_id: int, _: User = Depends(require_
     return page(request, "admin_utilisateur.html", u=u, evenements=suivi.parcours(db, u), recus=recus,
                 nom_page=suivi.nom_page, avis=db.scalars(select(Avis).where(Avis.user_id == u.id)
                                                          .order_by(Avis.quand.desc())).all())
+
+
+@app.get("/admin/assistant", response_class=HTMLResponse)
+def admin_assistant(request: Request, _: User = Depends(require_admin), db: Session = Depends(get_db)):
+    return page(request, "admin_assistant.html", s=apprentissage.tableau_questions(db),
+                depense=assistant.depense_du_mois(db), budget=config.ASSISTANT_BUDGET_USD, moteur=config.ASSISTANT_MOTEUR,
+                pour=config.ASSISTANT_POUR, appris=db.scalar(select(func.count()).select_from(assistant.ExpressionApprise)))
+
+
+@app.get("/admin/lectures", response_class=HTMLResponse)
+def admin_lectures(request: Request, _: User = Depends(require_admin), db: Session = Depends(get_db)):
+    return page(request, "admin_lectures.html", s=apprentissage.tableau_lectures(db))
+
+
+@app.get("/admin/lectures/{lecture_id}/fichier")
+def admin_lecture_fichier(lecture_id: int, _: User = Depends(require_admin), db: Session = Depends(get_db)):
+    lecture = db.get(LectureTicket, lecture_id)
+    chemin = config.UPLOAD_DIR / lecture.fichier_chemin if lecture and lecture.fichier_chemin else None
+    if chemin is None or not chemin.resolve().is_relative_to(config.UPLOAD_DIR.resolve()) or not chemin.exists():
+        raise HTTPException(status_code=404)
+    return FileResponse(chemin)
+
+
+@app.get("/admin/export/{quoi}.jsonl")
+def admin_export(quoi: str, _: User = Depends(require_admin)):
+    modele = {"questions": Question, "lectures": LectureTicket}.get(quoi)
+    if modele is None:
+        raise HTTPException(status_code=404)
+
+    def lignes():
+        with SessionLocal() as db:
+            yield from apprentissage.exporter(db, modele)
+    return StreamingResponse(lignes(), media_type="application/x-ndjson",
+                             headers={"Content-Disposition": f'attachment; filename="fairbasket-{quoi}.jsonl"'})
 
 
 @app.post("/admin/avis/{avis_id}/traite")

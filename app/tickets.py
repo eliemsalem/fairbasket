@@ -2,6 +2,7 @@
 
 import hashlib
 import re
+import time
 from collections import defaultdict
 import unicodedata
 from dataclasses import dataclass
@@ -144,7 +145,39 @@ def _date_achat(d: dict) -> Optional[datetime]:
 def enregistrer_ticket(db: Session, user: User, data: bytes, fichier_nom: str, media_type: str,
                        lire: Optional[Callable[..., Lecture]] = None, importe: bool = False,
                        suite: Sequence[bytes] = ()) -> Resultat:
-    """suite : les photos suivantes du meme ticket, quand il ne tient pas sur une seule photo."""
+    """suite : les photos suivantes du meme ticket, quand il ne tient pas sur une seule photo.
+    Chaque lecture tentee est gardee dans la base d'apprentissage (app/apprentissage.py), reussie ou non."""
+    from . import apprentissage
+
+    trace, debut = {}, time.monotonic()
+
+    def noter(resultat, message=None, receipt_id=None):
+        lecture = trace.get("lecture")
+        if not trace.get("tentee"):
+            return  # format refuse, quota, doublon de fichier : rien n'a ete lu
+        apprentissage.noter_lecture(
+            user.id, trace["sha"], data, suite, media_type, resultat, lu=lecture.donnees if lecture else None,
+            modele=lecture.modele if lecture else None,
+            tokens=(lecture.tokens_entree, lecture.tokens_sortie) if lecture else (0, 0),
+            duree_ms=int((time.monotonic() - debut) * 1000), message=message, receipt_id=receipt_id)
+
+    try:
+        res = _enregistrer(db, user, data, fichier_nom, media_type, lire, importe, suite, trace)
+    except TicketRefuse as e:
+        noter("illisible" if trace.get("lecture") else "erreur", str(e))
+        raise
+    except Exception as e:
+        noter("erreur", f"{type(e).__name__}: {e}")
+        raise
+    if res.doublon:
+        noter("doublon")
+    else:
+        noter(res.receipt.statut, res.receipt.remarques, res.receipt.id)
+    return res
+
+
+def _enregistrer(db: Session, user: User, data: bytes, fichier_nom: str, media_type: str,
+                 lire: Optional[Callable[..., Lecture]], importe: bool, suite: Sequence[bytes], trace: dict) -> Resultat:
     if media_type not in TYPES_ACCEPTES:
         raise TicketRefuse("Format non pris en charge : envoyez un PDF ou une photo (JPEG, PNG).")
     if suite and media_type == "application/pdf":
@@ -156,6 +189,7 @@ def enregistrer_ticket(db: Session, user: User, data: bytes, fichier_nom: str, m
     if not importe and tickets_ce_mois(db, user) >= config.MAX_TICKETS_PAR_MOIS:
         raise TicketRefuse("Limite de {n} tickets par mois atteinte.", n=config.MAX_TICKETS_PAR_MOIS)
 
+    trace["sha"], trace["tentee"] = sha, True
     try:
         # un PDF d'un format connu est lu par le code (gratuit, exact) ; sinon, ou si le total ne tombe pas juste,
         # Claude lit le ticket
@@ -165,6 +199,7 @@ def enregistrer_ticket(db: Session, user: User, data: bytes, fichier_nom: str, m
             lecture = lire(data, media_type, suite=suite) if suite else lire(data, media_type)
     except LectureImpossible as e:
         raise TicketRefuse(str(e))
+    trace["lecture"] = lecture
     d = lecture.donnees
     if not d.get("lisible"):
         raise TicketRefuse("Ce ticket n'a pas pu être lu. Reprenez la photo à plat, bien éclairée.")

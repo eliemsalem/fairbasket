@@ -4,7 +4,7 @@ from datetime import date, datetime, timezone
 from decimal import Decimal
 from typing import Optional
 
-from sqlalchemy import Boolean, Date, DateTime, Float, ForeignKey, Integer, Numeric, String, UniqueConstraint
+from sqlalchemy import JSON, Boolean, Date, DateTime, Float, ForeignKey, Integer, Numeric, String, Text, UniqueConstraint
 from sqlalchemy import false as sa_false
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -42,6 +42,8 @@ class User(Base):
     liste: Mapped[list["ShoppingItem"]] = relationship(cascade="all, delete-orphan", order_by="ShoppingItem.id")
     evenements: Mapped[list["Evenement"]] = relationship(cascade="all, delete-orphan")
     avis: Mapped[list["Avis"]] = relationship(cascade="all, delete-orphan")
+    questions: Mapped[list["Question"]] = relationship(cascade="all, delete-orphan")
+    lectures: Mapped[list["LectureTicket"]] = relationship(cascade="all, delete-orphan")
 
 
 class LoginToken(Base):
@@ -123,6 +125,8 @@ class Receipt(Base):
     store: Mapped[Optional[Store]] = relationship()
     items: Mapped[list["ReceiptItem"]] = relationship(back_populates="receipt", cascade="all, delete-orphan",
                                                       order_by="ReceiptItem.position")
+    # sa lecture garde pour ameliorer le modele : partie avec le ticket
+    lectures: Mapped[list["LectureTicket"]] = relationship(back_populates="receipt", cascade="all, delete-orphan")
 
 
 class ReceiptItem(Base):
@@ -269,3 +273,94 @@ class Avis(Base):
     page: Mapped[Optional[str]] = mapped_column(String(80))
     message: Mapped[str] = mapped_column(String(2000))
     traite: Mapped[bool] = mapped_column(Boolean, default=False, server_default=sa_false())
+
+
+# --- Bases d'apprentissage : tout ce qu'il faut pour ameliorer l'assistant et la lecture des tickets -----------
+# Supprimees avec le compte ; gardees APPRENTISSAGE_JOURS au plus.
+
+
+class Question(Base):
+    """Une question posee a l'assistant, aboutie ou non : comprehension, outils, reponse, cout, avis."""
+
+    __tablename__ = "questions"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    quand: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now, index=True)
+    texte: Mapped[str] = mapped_column(String(500))
+    cle: Mapped[str] = mapped_column(String(500), index=True)  # texte normalise, pour regrouper les memes questions
+    langue: Mapped[str] = mapped_column(String(2), default="fr")
+    # zone a 0,01 degre pres (~1 km) : ou la personne cherche, sans son adresse exacte
+    zone_lat: Mapped[Optional[float]] = mapped_column(Float)
+    zone_lon: Mapped[Optional[float]] = mapped_column(Float)
+    ville: Mapped[Optional[str]] = mapped_column(String(80))
+    # qui a compris la question : code (regles), appris (deja comprise par Claude), claude, cache
+    moteur: Mapped[str] = mapped_column(String(10))
+    intention: Mapped[Optional[str]] = mapped_column(String(30), index=True)
+    parametres: Mapped[Optional[dict]] = mapped_column(JSON)
+    etapes: Mapped[Optional[list]] = mapped_column(JSON)  # outils appeles : nom, entree, nombre de resultats, duree
+    resultats: Mapped[Optional[list]] = mapped_column(JSON)
+    reponse: Mapped[Optional[str]] = mapped_column(Text)
+    trouve: Mapped[bool] = mapped_column(Boolean, default=False)
+    erreur: Mapped[Optional[str]] = mapped_column(String(300))
+    recherches_web: Mapped[int] = mapped_column(Integer, default=0)
+    sources: Mapped[Optional[list]] = mapped_column(JSON)
+    modele: Mapped[Optional[str]] = mapped_column(String(40))
+    consignes: Mapped[Optional[str]] = mapped_column(String(20))  # version des consignes donnees a Claude
+    tokens_entree: Mapped[int] = mapped_column(Integer, default=0)
+    tokens_sortie: Mapped[int] = mapped_column(Integer, default=0)
+    cout_usd: Mapped[float] = mapped_column(Float, default=0)
+    duree_ms: Mapped[int] = mapped_column(Integer, default=0)
+    note: Mapped[Optional[int]] = mapped_column(Integer)  # 1 utile, -1 pas utile
+    commentaire: Mapped[Optional[str]] = mapped_column(String(1000))
+
+
+class ExpressionApprise(Base):
+    """Une question que Claude a comprise et qui a abouti : la prochaine fois, le code la comprend seul."""
+
+    __tablename__ = "expressions_apprises"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    cle: Mapped[str] = mapped_column(String(500), unique=True, index=True)
+    intention: Mapped[str] = mapped_column(String(30))
+    parametres: Mapped[dict] = mapped_column(JSON)
+    appris_le: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
+    utilisee: Mapped[int] = mapped_column(Integer, default=0)
+
+
+class LectureTicket(Base):
+    """Chaque lecture d'un ticket (PDF ou photo), reussie ou non : le fichier, ce qui a ete lu, ce que la
+    personne a corrige ensuite. C'est le jeu d'exemples pour ameliorer la lecture."""
+
+    __tablename__ = "lectures_tickets"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    receipt_id: Mapped[Optional[int]] = mapped_column(ForeignKey("receipts.id", ondelete="CASCADE"), index=True)
+    quand: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now, index=True)
+    source: Mapped[str] = mapped_column(String(5))  # pdf ou photo
+    media_type: Mapped[Optional[str]] = mapped_column(String(40))
+    nb_fichiers: Mapped[int] = mapped_column(Integer, default=1)
+    taille_octets: Mapped[int] = mapped_column(Integer, default=0)
+    largeur: Mapped[Optional[int]] = mapped_column(Integer)
+    hauteur: Mapped[Optional[int]] = mapped_column(Integer)
+    fichier_chemin: Mapped[Optional[str]] = mapped_column(String(300))  # sous UPLOAD_DIR, aussi pour un echec
+    methode: Mapped[Optional[str]] = mapped_column(String(10))  # code, code+IA, IA
+    modele: Mapped[Optional[str]] = mapped_column(String(40))
+    # ok, ecart, illisible, refuse, erreur, doublon
+    resultat: Mapped[str] = mapped_column(String(10), index=True)
+    message: Mapped[Optional[str]] = mapped_column(String(300))
+    duree_ms: Mapped[int] = mapped_column(Integer, default=0)
+    tokens_entree: Mapped[int] = mapped_column(Integer, default=0)
+    tokens_sortie: Mapped[int] = mapped_column(Integer, default=0)
+    cout_usd: Mapped[float] = mapped_column(Float, default=0)
+    enseigne: Mapped[Optional[str]] = mapped_column(String(60))
+    nb_articles: Mapped[int] = mapped_column(Integer, default=0)
+    nb_illisibles: Mapped[int] = mapped_column(Integer, default=0)
+    ecart: Mapped[Optional[float]] = mapped_column(Float)  # total imprime - (articles - remises)
+    lu: Mapped[Optional[dict]] = mapped_column(JSON)  # la lecture brute, telle que rendue par le code ou Claude
+    corrige: Mapped[Optional[dict]] = mapped_column(JSON)  # le ticket apres les corrections de la personne
+    nb_corrections: Mapped[int] = mapped_column(Integer, default=0)
+    corrige_le: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
+
+    receipt: Mapped[Optional[Receipt]] = relationship(back_populates="lectures")
