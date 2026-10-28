@@ -213,3 +213,69 @@ def magasin_proche(enseigne: str, lat: float, lon: float, get: Optional[Callable
         return None  # pas garde : on reessaiera
     _proches[cle] = trouve
     return trouve
+
+
+def situer(texte: str, get: Optional[Callable] = None) -> Optional[dict]:
+    """Un code postal, une ville ou une adresse tapes par la personne -> {lat, lon, quartier} (« 75019 Paris »)."""
+    texte = " ".join((texte or "").split())[:120]
+    if len(texte) < 2:
+        return None
+    url = "https://api-adresse.data.gouv.fr/search/?" + urllib.parse.urlencode({"q": texte, "limit": 1})
+    try:
+        for f in (get or _get)(url).get("features", []):
+            p = f["properties"]
+            if p.get("score", 0) >= 0.3:
+                return {**_position_ban(f), "quartier": " ".join(x for x in (p.get("postcode"), p.get("city")) if x)}
+    except Exception as e:
+        log.warning("Quartier %s : %s", texte, e)
+    return None
+
+
+def nommer_lieu(lat: float, lon: float, get: Optional[Callable] = None) -> Optional[str]:
+    """Le code postal et la ville d'une position (« 75019 Paris »), sans l'adresse exacte."""
+    url = "https://api-adresse.data.gouv.fr/reverse/?" + urllib.parse.urlencode({"lat": lat, "lon": lon, "limit": 1})
+    try:
+        for f in (get or _get)(url).get("features", []):
+            p = f["properties"]
+            return " ".join(x for x in (p.get("postcode"), p.get("city")) if x) or None
+    except Exception as e:
+        log.warning("Nom du lieu %s, %s : %s", lat, lon, e)
+    return None
+
+
+_supermarches: dict = {}  # (lat, lon) arrondis -> magasins a cote
+
+
+def supermarches_proches(lat: float, lon: float, get: Optional[Callable] = None) -> list:
+    """Les supermarches autour d'un point (OpenStreetMap, environ 1,5 km), le plus proche de chaque enseigne
+    connue d'abord : [{enseigne, nom, adresse, ville, lat, lon, distance_km}], du plus proche au plus loin."""
+    from .enseignes import reconnaitre
+    from .openprices import distance_km
+
+    cle = (round(lat, 2), round(lon, 2))
+    if cle in _supermarches:
+        return _supermarches[cle]
+    url = "https://nominatim.openstreetmap.org/search?" + urllib.parse.urlencode(
+        {"q": "supermarket", "format": "jsonv2", "addressdetails": 1, "limit": 40, "bounded": 1,
+         "viewbox": f"{lon - 0.021},{lat + 0.0135},{lon + 0.021},{lat - 0.0135}"})
+    try:
+        resultats = (get or _get)(url)
+    except Exception as e:
+        log.warning("Supermarchés autour de %s, %s : %s", lat, lon, e)
+        return []  # pas garde : on reessaiera
+    par_enseigne = {}
+    for r in resultats:
+        enseigne = reconnaitre(r.get("name") or "")[0]
+        p = _position(r.get("lat"), r.get("lon"))
+        if r.get("category") != "shop" or not enseigne or not p:
+            continue
+        a = r.get("address") or {}
+        m = {"enseigne": enseigne, "nom": r.get("name"),
+             "adresse": " ".join(x for x in (a.get("house_number"), a.get("road"), a.get("postcode")) if x) or None,
+             "ville": a.get("city") or a.get("town") or a.get("village"), **p,
+             "distance_km": round(distance_km(lat, lon, p["lat"], p["lon"]), 1)}
+        if enseigne not in par_enseigne or m["distance_km"] < par_enseigne[enseigne]["distance_km"]:
+            par_enseigne[enseigne] = m
+    magasins = sorted(par_enseigne.values(), key=lambda m: m["distance_km"])
+    _supermarches[cle] = magasins
+    return magasins

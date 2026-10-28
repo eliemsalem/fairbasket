@@ -124,10 +124,14 @@ def synchroniser(db: Session, get: Callable[[dict], dict] = _get, zones: Optiona
 
 
 def zone_de(db: Session, user: User, position: Optional[tuple] = None) -> dict:
-    """Ou chercher les prix pour cette personne : sa position « Autour de moi » si elle l'a donnee,
-    sinon la ou elle fait ses courses (magasins de ses tickets), sinon la zone par defaut."""
+    """Ou chercher les prix pour cette personne : sa position « Autour de moi » si elle l'a donnee, sinon son
+    quartier (donne une fois, garde sur le compte), sinon la ou elle fait ses courses (magasins de ses tickets),
+    sinon la zone par defaut."""
     if position:
         return {"lat": position[0], "lon": position[1], "source": "position", "ville": None}
+    if user.quartier_lat is not None and user.quartier_lon is not None:
+        return {"lat": user.quartier_lat, "lon": user.quartier_lon, "source": "quartier",
+                "ville": " ".join((user.quartier or "").split()[1:]) or user.quartier}
     lieux = db.execute(select(Store.lat, Store.lon, Store.ville).join(Receipt, Receipt.store_id == Store.id)
                        .where(Receipt.user_id == user.id, Store.lat.is_not(None))).all()
     if lieux:

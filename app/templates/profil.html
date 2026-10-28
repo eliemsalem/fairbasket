@@ -12,6 +12,18 @@
     <div style="height:6px;border-radius:3px;background:var(--line);overflow:hidden"><div style="width:{{ (utilises * 100 // maximum) if maximum else 0 }}%;height:100%;background:var(--fg)"></div></div>
   </div>
 
+  <section id="quartier" style="display:flex;flex-direction:column;gap:10px">
+    <span class="eyebrow">{{ _("Mon quartier") }}</span>
+    <p style="margin:0">{% if user.quartier %}<strong>{{ user.quartier }}</strong>{% elif zone.source == "tickets" %}{{ _("Autour des magasins de vos tickets") }}{% else %}{{ _("Pas encore indiqué : les prix sont ceux de {ville}.", ville=zone.ville) }}{% endif %}</p>
+    {% if magasins %}
+    <span class="small">{{ _("Les magasins à côté, que l'app compare pour vous :") }}</span>
+    <div class="rows">{% for m in magasins[:8] %}<div class="row"><span class="dot" style="width:10px;height:10px;flex:none;background:{{ m.enseigne|couleur }}"></span><span class="grow">{{ m.enseigne }}<br><span class="small">{{ m.adresse or m.nom }}</span></span><span class="mono small">{{ m.distance_km }} km</span></div>{% endfor %}</div>
+    {% endif %}
+    <details{% if not user.quartier and zone.source == "defaut" %} open{% endif %}><summary class="small">{{ _("Indiquer ou changer mon quartier") }}</summary>
+      <div style="margin-top:10px">{% with retour="/profil#quartier", attente="" %}{% include "_quartier.html" %}{% endwith %}</div>
+    </details>
+  </section>
+
   <section style="display:flex;flex-direction:column;gap:10px">
     <span class="eyebrow">{{ _("Langue") }}</span>
     <div class="seg" role="group" aria-label="{{ _('Langue') }}">

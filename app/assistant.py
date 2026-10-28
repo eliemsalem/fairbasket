@@ -30,7 +30,7 @@ from .recherche import SEUIL, score
 from .tickets import cle_produit
 
 log = logging.getLogger("fairbasket.assistant")
-CONSIGNES_VERSION = "2026-10-28c"  # aussi la version des reponses : une reponse d'une autre version n'est pas reprise
+CONSIGNES_VERSION = "2026-10-28d"  # aussi la version des reponses : une reponse d'une autre version n'est pas reprise
 RAYONS_KM = (config.OPEN_PRICES_PRES_KM, config.OPEN_PRICES_RAYON_KM)  # on elargit si rien n'est trouve pres
 CACHE_HEURES = 24
 
@@ -190,6 +190,14 @@ def _comparable(o: dict) -> float:
     return o["prix_unitaire"] if o.get("prix_unitaire") is not None else o["prix"]
 
 
+def magasins_a_cote(zone: Optional[dict]) -> list:
+    """Les supermarches autour de la zone de la personne, le plus proche de chaque enseigne (OpenStreetMap)."""
+    if not zone or zone.get("source") == "defaut" or not config.ADRESSES_AUTO:
+        return []
+    from .adresses import supermarches_proches
+    return supermarches_proches(zone["lat"], zone["lon"])
+
+
 def mes_enseignes(db: Session, user: User) -> list:
     return [e for e, in db.execute(
         select(Store.enseigne).join(Receipt).where(Receipt.user_id == user.id)
@@ -219,9 +227,10 @@ def proposer(db: Session, user: User, zone: Optional[dict], offres: list, lang: 
         choix.append(dict(o))
     choix = choix[:MAX_OFFRES]
     habituelles = mes_enseignes(db, user)
+    a_cote = {m["enseigne"]: m for m in magasins_a_cote(zone)}
     for o in choix:
         if o.get("lat") is None and o.get("enseigne") and zone and config.ADRESSES_AUTO:
-            m = magasin_proche(o["enseigne"], zone["lat"], zone["lon"])
+            m = a_cote.get(o["enseigne"]) or magasin_proche(o["enseigne"], zone["lat"], zone["lon"])
             if m:
                 o.update(magasin=o.get("magasin") or m["nom"], adresse=" ".join(
                     x for x in (m["adresse"], m["code_postal"]) if x) or None, ville=m["ville"], lat=m["lat"],
@@ -347,7 +356,7 @@ CONSIGNES = """Tu es l'assistant de FairBasket, une application qui aide à paye
 Tu réponds en {langue}, en 2 à 6 phrases courtes, en texte simple : pas de gras, pas de tableau ; une liste à puces avec « - » si besoin. Vouvoie la personne.
 
 - Pour une question de prix, appelle d'abord chercher_prix.
-- La recherche web seulement si chercher_prix ne trouve rien d'utile. La personne habite près de {ville} et fait ses courses chez : {enseignes}. Cherche alors les prix affichés en ligne par ces enseignes (sites de courses, drives) ou par les grandes enseignes nationales ; ignore les magasins d'autres régions. Deux recherches au plus.
+- La recherche web seulement si chercher_prix ne trouve rien d'utile ou une seule enseigne. La personne habite près de {ville}. Magasins à côté de chez elle : {a_cote}. Elle fait déjà ses courses chez : {enseignes}. Cherche les prix affichés en ligne par ces enseignes à côté (sites de courses, drives) en priorité ; ignore les magasins d'autres régions. Deux recherches au plus.
 - Ne donne jamais un prix qui ne vient pas d'un outil ou d'une page trouvée. Si les formats diffèrent, compare au prix à l'unité (par pastille, par kilo, par litre).
 - Pour une question de prix, termine toujours en appelant repondre : 3 à 5 choix dans des enseignes différentes (un seul par enseigne), avec le prix à l'unité quand le nombre de pastilles, le poids ou le volume est connu, pour que la personne choisisse ; l'app les classe par prix à l'unité. Pas besoin d'adresse : l'app ajoute celle du magasin le plus proche. Ajoute un conseil, et un « bon à savoir » qui la surprenne et lui simplifie la vie. Sa liste de courses : {liste}.
 - Si rien n'est trouvé, dis-le simplement et propose d'ajouter le produit à la liste.
@@ -468,7 +477,9 @@ def demander_a_claude(db: Session, user: User, zone: Optional[dict], question: s
             rep = _appel(client, model=config.ASSISTANT_MODELE, max_tokens=2000, tools=outils, messages=messages,
                          system=CONSIGNES.format(langue="anglais" if lang == "en" else "français", ville=ville,
                                                  enseignes=", ".join(enseignes) or "inconnues",
-                                                 liste=", ".join(a_acheter) or "vide"),
+                                                 liste=", ".join(a_acheter) or "vide",
+                                                 a_cote=", ".join(f"{m['enseigne']} ({m['distance_km']:g} km)"
+                                                                  for m in magasins_a_cote(zone)[:10]) or "inconnus"),
                          output_config={"effort": "low"}, thinking={"type": "disabled"}, **force)
         except Exception as e:
             if not force:

@@ -1,0 +1,26 @@
+{# Demander une fois ou la personne fait ses courses. Variables : attente (question a reprendre), retour #}
+<div class="quartier" style="display:flex;flex-direction:column;gap:10px">
+  <button type="button" class="btn" data-quartier-ici>📍 {{ _("Autour de moi") }}</button>
+  <form method="post" action="/position" class="demander" style="margin:0">
+    <label class="visually-hidden" for="adresse-quartier">{{ _("Code postal ou ville") }}</label>
+    <input id="adresse-quartier" name="adresse" type="text" maxlength="120" required placeholder="{{ _('Code postal ou ville : 75019, Lyon 3…') }}">
+    <input type="hidden" name="garder" value="1"><input type="hidden" name="question" value="{{ attente or '' }}"><input type="hidden" name="retour" value="{{ retour }}">
+    <button class="btn ghost" type="submit">{{ _("OK") }}</button>
+  </form>
+  <span class="small">{{ _("Gardé sur votre compte à environ 1 km près, jamais votre adresse exacte. Modifiable dans Profil.") }}</span>
+</div>
+<script>
+document.querySelectorAll("[data-quartier-ici]").forEach(function (b) {
+  b.addEventListener("click", function () {
+    if (!navigator.geolocation) { document.getElementById("adresse-quartier").focus(); return; }
+    b.disabled = true;
+    navigator.geolocation.getCurrentPosition(function (pos) {
+      var f = document.createElement("form"); f.method = "post"; f.action = "/position";
+      var champs = {lat: pos.coords.latitude.toFixed(2), lon: pos.coords.longitude.toFixed(2), garder: "1",
+                    question: {{ (attente or '')|tojson }}, retour: {{ retour|tojson }}};
+      for (var k in champs) { var i = document.createElement("input"); i.type = "hidden"; i.name = k; i.value = champs[k]; f.appendChild(i); }
+      document.body.appendChild(f); f.submit();
+    }, function () { b.disabled = false; document.getElementById("adresse-quartier").focus(); }, {timeout: 10000, maximumAge: 600000});
+  });
+});
+</script>

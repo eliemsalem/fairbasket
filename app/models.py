@@ -35,6 +35,11 @@ class User(Base):
     ia_consent_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     partage_consent: Mapped[bool] = mapped_column(Boolean, default=False)
     partage_consent_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
+    # ou la personne fait ses courses, donne par elle (« Autour de moi » ou code postal), arrondi a ~1 km :
+    # sans ticket, c'est la seule facon de savoir quels magasins sont a cote d'elle
+    quartier: Mapped[Optional[str]] = mapped_column(String(120))  # « 75019 Paris »
+    quartier_lat: Mapped[Optional[float]] = mapped_column(Float)
+    quartier_lon: Mapped[Optional[float]] = mapped_column(Float)
 
     login_tokens: Mapped[list["LoginToken"]] = relationship(back_populates="user", cascade="all, delete-orphan")
     sessions: Mapped[list["UserSession"]] = relationship(back_populates="user", cascade="all, delete-orphan")

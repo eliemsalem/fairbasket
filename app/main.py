@@ -335,20 +335,36 @@ def _zone(request: Request, db: Session, user: User) -> dict:
 
 
 @app.post("/position")
-def position(lat: Optional[float] = Form(None), lon: Optional[float] = Form(None), retour: str = Form("/comparer"),
-             _: User = Depends(require_user), db: Session = Depends(get_db)):
-    """« Autour de moi » (une position) ou « Mes magasins » (sans position : la zone vient des tickets)."""
+def position(request: Request, lat: Optional[float] = Form(None), lon: Optional[float] = Form(None),
+             adresse: str = Form(""), garder: Optional[str] = Form(None), question: str = Form(""),
+             retour: str = Form("/comparer"), user: User = Depends(require_user), db: Session = Depends(get_db)):
+    """« Autour de moi » (une position), un code postal ou une ville tapes, ou « Mes magasins » (sans position :
+    la zone vient des tickets). Avec garder, c'est le quartier de la personne, garde sur son compte (~1 km pres) ;
+    avec une question en attente, l'assistant y repond aussitot."""
     resp = RedirectResponse(retour if retour.startswith("/") and not retour.startswith("//") else "/comparer",
                             status_code=303)
+    nom = None
+    if adresse.strip():
+        lieu = adresses.situer(adresse)
+        if lieu is None:
+            return RedirectResponse(f"/assistant?lieu=introuvable&attente={quote(question[:500])}", status_code=303)
+        lat, lon, nom = lieu["lat"], lieu["lon"], lieu["quartier"]
     if lat is None or lon is None or not (-90 <= lat <= 90 and -180 <= lon <= 180):
         resp.delete_cookie(POSITION_COOKIE)
         return resp
     zone = openprices.ajouter_zone(db, lat, lon)
+    if garder or adresse.strip():
+        user.quartier_lat, user.quartier_lon = round(lat, 2), round(lon, 2)
+        user.quartier = (nom or adresses.nommer_lieu(lat, lon) or "")[:120] or None
     db.commit()
     if zone.copie_le is None and config.OPEN_PRICES_AUTO:
         openprices.copier_en_fond(zone.id)
-    resp.set_cookie(POSITION_COOKIE, f"{lat:.2f}:{lon:.2f}", max_age=30 * 86400, httponly=True, samesite="lax",
-                    secure=config.COOKIE_SECURE)
+    if question.strip():
+        q = assistant.demander(db, user, question, openprices.zone_de(db, user), langue(request))
+        return RedirectResponse(f"/assistant?q={q.id}#q{q.id}", status_code=303)
+    if not (garder or adresse.strip()):
+        resp.set_cookie(POSITION_COOKIE, f"{lat:.2f}:{lon:.2f}", max_age=30 * 86400, httponly=True, samesite="lax",
+                        secure=config.COOKIE_SECURE)
     return resp
 
 
@@ -434,8 +450,10 @@ def liste_vider(user: User = Depends(require_user), db: Session = Depends(get_db
 
 @app.get("/profil", response_class=HTMLResponse)
 def profil(request: Request, user: User = Depends(require_user), db: Session = Depends(get_db)):
+    zone = _zone(request, db, user)
     return page(request, "profil.html", user=user, utilises=tickets.tickets_ce_mois(db, user),
-                maximum=config.MAX_TICKETS_PAR_MOIS, nb_tickets=len(user.receipts))
+                maximum=config.MAX_TICKETS_PAR_MOIS, nb_tickets=len(user.receipts), zone=zone,
+                magasins=assistant.magasins_a_cote(zone))
 
 
 @app.post("/profil/partage")
@@ -681,13 +699,14 @@ def _assistant_pour(user: User) -> User:
 
 
 @app.get("/assistant", response_class=HTMLResponse)
-def assistant_page(request: Request, q: Optional[int] = None, user: User = Depends(require_user),
-                   db: Session = Depends(get_db)):
+def assistant_page(request: Request, q: Optional[int] = None, attente: str = "", lieu: str = "",
+                   user: User = Depends(require_user), db: Session = Depends(get_db)):
     _assistant_pour(user)
+    zone = _zone(request, db, user)
     historique = db.scalars(select(Question).where(Question.user_id == user.id)
                             .order_by(Question.id.desc()).limit(10)).all()
-    return page(request, "assistant.html", user=user, historique=historique, derniere=q,
-                exemples=EXEMPLES_QUESTIONS, reste=None if auth.is_admin(user) else max(
+    return page(request, "assistant.html", user=user, historique=historique, derniere=q, zone=zone,
+                attente=attente[:500], lieu_introuvable=lieu == "introuvable", exemples=EXEMPLES_QUESTIONS, reste=None if auth.is_admin(user) else max(
                     0, config.ASSISTANT_QUESTIONS_PAR_MOIS - assistant.questions_claude_du_mois(db, user)))
 
 
@@ -697,7 +716,11 @@ def assistant_question(request: Request, question: str = Form(""), user: User = 
     _assistant_pour(user)
     if not question.strip():
         return RedirectResponse("/assistant", status_code=303)
-    q = assistant.demander(db, user, question, _zone(request, db, user), langue(request))
+    zone = _zone(request, db, user)
+    if zone["source"] == "defaut" and (assistant.comprendre(question) or ("prix", {}))[0] in ("prix", "panier"):
+        # on ne sait pas ou elle fait ses courses : on le lui demande une fois, puis on repond
+        return RedirectResponse(f"/assistant?attente={quote(question.strip()[:500])}#ou", status_code=303)
+    q = assistant.demander(db, user, question, zone, langue(request))
     suivi.noter(user.id, "question", "/assistant", f"{q.moteur} · {q.intention or '—'} · "
                                                    f"{'trouvé' if q.trouve else 'rien'}")
     return RedirectResponse(f"/assistant?q={q.id}#q{q.id}", status_code=303)

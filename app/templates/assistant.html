@@ -6,6 +6,17 @@
   <h1 style="font-size:24px">{{ _("Demandez-moi") }}</h1>
   <p class="lede" style="margin:0">{{ _("Où acheter moins cher, ce que vous dépensez, votre liste : posez votre question comme vous la diriez.") }}</p>
 
+  {% if zone.source == "defaut" or attente or lieu_introuvable %}
+  <section class="card" id="ou" style="display:flex;flex-direction:column;gap:10px">
+    <h2 style="margin:0">{{ _("Où faites-vous vos courses ?") }}</h2>
+    <p class="small" style="margin:0">{{ _("Je trouve les magasins à côté de chez vous, puis je compare leurs prix.") }}{% if attente %} {{ _("Ensuite, je réponds à : « {question} »", question=attente) }}{% endif %}</p>
+    {% if lieu_introuvable %}<p class="small" role="alert" style="margin:0;color:var(--danger)">{{ _("Je n'ai pas trouvé ce lieu : essayez un code postal.") }}</p>{% endif %}
+    {% with retour="/assistant" %}{% include "_quartier.html" %}{% endwith %}
+  </section>
+  {% else %}
+  <p class="small" style="margin:0">{{ _("Magasins autour de {lieu}", lieu=user.quartier or zone.ville or _("vos magasins habituels")) }} · <a href="/profil#quartier">{{ _("changer") }}</a></p>
+  {% endif %}
+
   <form method="post" action="/assistant" id="demande" style="gap:10px">
     <label class="visually-hidden" for="question">{{ _("Votre question") }}</label>
     <textarea id="question" name="question" rows="2" maxlength="500" required placeholder="{{ _(exemples[0]) }}"></textarea>

@@ -59,7 +59,8 @@
     <p class="small" style="margin:0">
       {% if zone.source == 'position' %}{{ _("Magasins à moins de {km} km de votre position, prix des 90 derniers jours.", km=autour_km) }}
       {% elif zone.source == 'tickets' %}{{ _("Magasins à moins de {km} km de là où vous faites vos courses, prix des 90 derniers jours.", km=autour_km) }}
-      {% else %}{{ _("Magasins autour de {ville} (zone par défaut) : elle s'adapte toute seule à vos magasins dès votre premier ticket.", ville=zone.ville) }}{% endif %}
+      {% elif zone.source == 'quartier' %}{{ _("Magasins à moins de {km} km de votre quartier, prix des 90 derniers jours.", km=autour_km) }}
+      {% else %}{{ _("Magasins autour de {ville} (zone par défaut) : elle s'adapte toute seule à vos magasins dès votre premier ticket.", ville=zone.ville) }} <a href="/profil#quartier">{{ _("Indiquer mon quartier") }}</a>{% endif %}
     </p>
     <div style="display:flex;flex-wrap:wrap;gap:8px">
       {% if zone.source != 'position' %}<button type="button" class="chip" data-autour-de-moi>{{ _("Autour de moi") }}</button>

@@ -212,3 +212,32 @@ def test_une_seule_enseigne_connue_on_compare_avec_les_autres(db):
     ticket(db, v, 2, "Monoprix", "2026-10-03", [_article("LESSIVE DOSES", "Lessive en dosettes 3D", 2.92)])
     q2 = assistant.demander(db, v, "les pastilles de lessive les moins chères à côté de chez moi", ZONE)
     assert q2.moteur == "code" and q2.trouve and q2.resultats["offres"][0]["enseigne"] == "Monoprix"
+
+
+def test_sans_quartier_on_le_demande_puis_on_repond(client, links, monkeypatch):
+    from app import adresses
+    from app.db import SessionLocal
+    from app.models import User
+    from tests.test_auth import connecter_admin
+    connecter_admin(client, links)
+    # ni ticket ni quartier : on ne repond pas avec les prix de Paris par defaut, on demande ou
+    r = client.post("/assistant", data={"question": "Où trouver du beurre moins cher ?"}, follow_redirects=False)
+    assert r.status_code == 303 and "attente=" in r.headers["location"]
+    page = client.get(r.headers["location"]).text
+    assert "Où faites-vous vos courses" in page and "Où trouver du beurre moins cher" in page
+    # un code postal : le quartier est garde sur le compte et la question en attente est traitee
+    monkeypatch.setattr(adresses, "situer", lambda texte: {"lat": 45.7516, "lon": 4.8696, "quartier": "69003 Lyon"})
+    r = client.post("/position", data={"adresse": "69003", "garder": "1", "question": "Où trouver du beurre moins cher ?",
+                                       "retour": "/assistant"}, follow_redirects=False)
+    assert r.headers["location"].startswith("/assistant?q=")
+    with SessionLocal() as db:
+        u = db.query(User).first()
+        assert (u.quartier, u.quartier_lat, u.quartier_lon) == ("69003 Lyon", 45.75, 4.87)
+        q = db.scalars(select(Question)).one()
+        assert q.zone_lat == 45.75 and q.ville == "Lyon" and q.intention == "prix"
+    assert "Magasins autour de 69003 Lyon" in client.get("/assistant").text
+    assert "69003 Lyon" in client.get("/profil").text
+    # lieu introuvable : on le redit, la question reste en attente
+    monkeypatch.setattr(adresses, "situer", lambda texte: None)
+    r = client.post("/position", data={"adresse": "zzz", "garder": "1", "question": "beurre ?"}, follow_redirects=False)
+    assert "lieu=introuvable" in r.headers["location"]
