@@ -282,6 +282,11 @@ EN = {
     "Tapez SUPPRIMER pour confirmer": "Type SUPPRIMER to confirm", "Tout supprimer": "Delete everything",
     "Se déconnecter": "Log out", "Mentions légales": "Legal notice", "Confidentialité": "Privacy", "Conditions": "Terms",
     # assistant
+    "Personne n'a encore de prix pour « {q} » autour de vous.": "Nobody has a price for “{q}” near you yet.",
+    "Où trouver {q} moins cher près de chez moi ?": "Where can I find cheaper {q} near me?",
+    "Chercher les prix en ligne": "Search prices online",
+    "Dans votre liste, l'app vous dira où c'est le moins cher dès que vous ou quelqu'un d'autre l'achetez.":
+        "On your list, the app will tell you where it's cheapest as soon as you or someone else buys it.",
     "Demandez-moi": "Ask me", "Demander": "Ask", "Où faire mes courses": "Where to shop", "Votre question": "Your question",
     "Demandez-moi : où acheter moins cher…": "Ask me: where to buy cheaper…",
     "Où acheter moins cher, ce que vous dépensez, votre liste : posez votre question comme vous la diriez.":

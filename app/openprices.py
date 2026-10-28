@@ -227,7 +227,10 @@ def chercher(db: Session, requete: str, limite: int = 8, zone: Optional[dict] = 
         vus.add(cle)
         commence = cle_produit(p.nom).startswith(premier[:max(3, len(premier) - 1)])
         kilo = prix_au_kilo(p)
-        resultats.append({"p": p, "score": s, "kilo": kilo, "unite": unite_kilo(p), "commence": commence})
+        distance = distance_km(zone["lat"], zone["lon"], p.lat, p.lon) if zone and p.lat is not None \
+            and p.lon is not None else None
+        resultats.append({"p": p, "score": s, "kilo": kilo, "unite": unite_kilo(p), "commence": commence,
+                          "distance": distance})
     resultats.sort(key=lambda r: (-round(r["score"], 1), not r["commence"],
                                   r["kilo"] if r["kilo"] is not None else r["p"].prix))
     return resultats[:limite]

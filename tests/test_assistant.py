@@ -152,3 +152,13 @@ def test_chaque_lecture_est_gardee_avec_ses_corrections(client, links, monkeypat
     client.post("/profil/supprimer", data={"confirmation": "SUPPRIMER"})
     with SessionLocal() as db:
         assert db.scalars(select(LectureTicket)).all() == [] and db.scalars(select(Question)).all() == []
+
+
+def test_comparer_sans_aucun_prix_propose_la_recherche_en_ligne(client, links):
+    from tests.test_auth import connecter_admin
+    connecter_admin(client, links)
+    page = client.get("/comparer?q=pastilles%20lave-vaisselle").text
+    assert "Personne n&#39;a encore de prix" in page or "Personne n'a encore de prix" in page
+    assert "Chercher les prix en ligne" in page and 'action="/assistant"' in page
+    r = client.post("/assistant", data={"question": "Où trouver pastilles lave-vaisselle moins cher près de chez moi ?"})
+    assert r.status_code == 200 and "pastilles" in r.text

@@ -57,8 +57,8 @@
   <section style="display:flex;flex-direction:column;gap:10px;margin-top:6px">
     <h2>{{ _("Autour de vous") }}</h2>
     <p class="small" style="margin:0">
-      {% if zone.source == 'position' %}{{ _("Magasins à moins de {km} km de votre position, prix des 90 derniers jours.", km=pres_km) }}
-      {% elif zone.source == 'tickets' %}{{ _("Magasins à moins de {km} km de là où vous faites vos courses, prix des 90 derniers jours.", km=pres_km) }}
+      {% if zone.source == 'position' %}{{ _("Magasins à moins de {km} km de votre position, prix des 90 derniers jours.", km=autour_km) }}
+      {% elif zone.source == 'tickets' %}{{ _("Magasins à moins de {km} km de là où vous faites vos courses, prix des 90 derniers jours.", km=autour_km) }}
       {% else %}{{ _("Magasins autour de {ville} (zone par défaut) : elle s'adapte toute seule à vos magasins dès votre premier ticket.", ville=zone.ville) }}{% endif %}
     </p>
     <div style="display:flex;flex-wrap:wrap;gap:8px">
@@ -72,7 +72,7 @@
         <div class="row" style="align-items:flex-start">
           <span class="dot" style="width:10px;height:10px;margin-top:6px;background:{{ r.p.magasin.split(' ')[0]|couleur }}"></span>
           <span class="grow">{{ r.p.nom }}{% if r.p.marque %} <span class="small">· {{ r.p.marque.split(',')[0] }}</span>{% endif %}<br>
-            <span class="small">{{ r.p.magasin }}{% if r.p.ville %} ({{ r.p.ville }}){% endif %} · {{ r.p.jour.strftime('%d/%m') }}{% if r.p.promo %} · {{ _("promo") }}{% endif %}</span></span>
+            <span class="small">{{ r.p.magasin }}{% if r.p.ville %} ({{ r.p.ville }}){% endif %}{% if r.distance is not none %} · {{ "%.1f"|format(r.distance) }} km{% endif %} · {{ r.p.jour.strftime('%d/%m') }}{% if r.p.promo %} · {{ _("promo") }}{% endif %}</span></span>
           <span style="text-align:right"><span class="mono">{{ r.p.prix|euros }}</span>{% if r.kilo and r.p.prix_par != 'KILOGRAM' %}<br><span class="small mono">{{ r.kilo|euros }}/{{ r.unite }}</span>{% elif r.p.prix_par == 'KILOGRAM' %}<br><span class="small">/kg</span>{% endif %}</span>
         </div>
       {% endfor %}
@@ -82,4 +82,17 @@
     <p class="small" style="margin:0">{{ _("Pas encore de prix relevé près de vous pour « {q} ».", q=q) }}</p>
     {% endif %}
   </section>
+{% endif %}
+
+{% if q and not autour and not zone_en_copie and (onglet != 'moi' or not c.produits) %}
+  <div class="card" style="display:flex;flex-direction:column;gap:10px">
+    <p class="lede" style="margin:0">{{ _("Personne n'a encore de prix pour « {q} » autour de vous.", q=q) }}</p>
+    {% if assistant_ok %}
+    <form method="post" action="/assistant" style="margin:0"><input type="hidden" name="question" value="{{ _('Où trouver {q} moins cher près de chez moi ?', q=q) }}">
+      <button class="btn" type="submit">{{ _("Chercher les prix en ligne") }}</button></form>
+    {% endif %}
+    <form method="post" action="/liste" style="margin:0"><input type="hidden" name="nom" value="{{ q }}">
+      <button class="btn ghost" type="submit">{{ _("Ajouter à ma liste") }}</button></form>
+    <p class="small" style="margin:0">{{ _("Dans votre liste, l'app vous dira où c'est le moins cher dès que vous ou quelqu'un d'autre l'achetez.") }}</p>
+  </div>
 {% endif %}

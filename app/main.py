@@ -360,8 +360,11 @@ def comparer(request: Request, onglet: str = "moi", q: str = "", fragment: int =
     gabarit = "_comparer_resultats.html" if fragment else "comparer.html"
     zone = _zone(request, db, user)
     # prix Open Prices releves dans les magasins proches de chez la personne
-    ctx = dict(q=q, zone=zone, autour=openprices.chercher(db, q, zone=zone),
-               zone_en_copie=openprices.zone_en_copie(db, zone))
+    autour, autour_km = openprices.chercher(db, q, zone=zone), config.OPEN_PRICES_PRES_KM
+    if q and not autour:  # rien tout pres : on regarde un peu plus loin (toute la zone copiee)
+        autour, autour_km = openprices.chercher(db, q, zone=zone, km=config.OPEN_PRICES_RAYON_KM), config.OPEN_PRICES_RAYON_KM
+    ctx = dict(q=q, zone=zone, autour=autour, autour_km=f"{autour_km:g}", zone_en_copie=openprices.zone_en_copie(db, zone),
+               assistant_ok=assistant.peut_utiliser(user))
     if onglet == "communaute":
         return page(request, gabarit, onglet=onglet, commu=stats.communaute(db, user, q), **ctx)
     return page(request, gabarit, onglet="moi", c=stats.comparaisons(db, user, q), **ctx)
