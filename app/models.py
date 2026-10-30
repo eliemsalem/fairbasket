@@ -188,6 +188,8 @@ class ProductAlias(Base):
     marque: Mapped[Optional[str]] = mapped_column(String(120))
     format: Mapped[Optional[str]] = mapped_column(String(40))
     image: Mapped[Optional[str]] = mapped_column(String(300))
+    # Nutri-Score, NOVA, additifs, labels, rayon et « mieux note » du meme rayon (voir sante.py)
+    sante: Mapped[Optional[dict]] = mapped_column(JSON)
 
 
 class SharedPrice(Base):

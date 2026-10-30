@@ -1,0 +1,10 @@
+{# Sante d'un article scanne : notes officielles et faits, sans jugement de notre part #}
+{% macro nutri(n) %}{% if n %}<span class="nutri nutri-{{ n }}" title="Nutri-Score {{ n|upper }}" aria-label="Nutri-Score {{ n|upper }}">{{ n|upper }}</span>{% endif %}{% endmacro %}
+{% macro faits(s) %}{% set nova = {1: _("brut ou peu transformé"), 2: _("ingrédient culinaire"), 3: _("transformé"), 4: _("ultra-transformé")} %}
+{%- set parts = [] -%}
+{%- if s.nutriscore %}{% set _x = parts.append(nutri(s.nutriscore) ~ " Nutri-Score") %}{% endif -%}
+{%- if s.nova %}{% set _x = parts.append("NOVA " ~ s.nova ~ " · " ~ nova[s.nova]) %}{% endif -%}
+{%- if s.additifs %}{% set _x = parts.append(_("Additifs : {liste}", liste=s.additifs[:6]|join(", ")) ~ ("…" if s.additifs|length > 6 else "")) %}{% elif s.nutriscore %}{% set _x = parts.append(_("Sans additif")) %}{% endif -%}
+{%- for l in s.labels or [] %}{% set _x = parts.append(_(l)) %}{% endfor -%}
+{{ parts|join(" · ") }}{% endmacro %}
+{% macro prix_mieux(m) %}{% if m.prix %} · {{ m.prix.prix|euros }} {{ _("chez {ou}", ou=_(m.prix.ou)) }}{% if m.prix.distance is not none %} ({{ m.prix.distance }} km){% endif %}{% if m.ecart_unite is defined and m.ecart_unite < 0 %} · <strong>{{ _("{ecart}/{unite} de moins", ecart=(-m.ecart_unite)|euros, unite=m.unite[1]) }}</strong>{% endif %}{% endif %}{% endmacro %}

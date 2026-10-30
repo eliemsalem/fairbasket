@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% import "_sante.html" as sante with context %}
 {% block title %}FairBasket — {{ _("Ticket") }}{% endblock %}
 {% block body %}
 <main class="screen with-nav">
@@ -10,6 +11,12 @@
   </div>
   <h1 class="mono" style="font-size:40px;line-height:1">{{ r.total|euros }}</h1>
   {% include "_bilan_ticket.html" %}
+  {% if bilan_sante %}
+  <div class="sante-bilan">
+    <div class="sante-barre" aria-hidden="true">{% for p in bilan_sante.parts %}<span class="nutri-{{ p.note }}" style="flex:{{ p.pct }}"></span>{% endfor %}</div>
+    <span class="small">{{ _("Nutri-Score : {pct} % en A ou B, sur {montant} d'articles scannés.", pct=bilan_sante.pct_bons, montant=bilan_sante.montant|euros) }}</span>
+  </div>
+  {% endif %}
 
   {% set s = r.store %}
   {% if s and s.enseigne != 'Inconnue' %}
@@ -44,7 +51,9 @@
             <noscript><button class="btn ghost" style="height:40px" type="submit">{{ _("Changer le rayon") }}</button></noscript>
           </form>{% endif %}
           <a class="small" href="/tickets/{{ r.id }}/code/{{ it.id }}" style="display:block;margin:0 0 8px">▥ <u>{{ _("Scanner le code-barres (article exact)") if it.id not in exacts else _("Changer le code-barres") }}</u></a></details>{% else %}{{ it.product.nom if it.product else it.libelle }}{% endif %}<span class="small">{{ it.libelle }}{% if it.prix_kg %} · {{ it.prix_kg|euros }}/kg{% endif %}{% if it.product and it.product.categorie %} · {{ _(it.product.categorie) }}{% endif %}</span>{% set x = exacts.get(it.id) %}{% if x %}
-          <span class="small exact-ligne">▥ {{ [x.alias.nom_exact, x.alias.marque.split(',')[0] if x.alias.marque, x.alias.format]|select|join(' · ') or x.alias.code_barres }}{% if x.unite %} · {{ x.unite[0]|euros }}/{{ x.unite[1] }}{% endif %}</span>{% for a in x.ailleurs[:1] %}
+          <span class="small exact-ligne">▥ {{ [x.alias.nom_exact, x.alias.marque.split(',')[0] if x.alias.marque, x.alias.format]|select|join(' · ') or x.alias.code_barres }}{% if x.unite %} · {{ x.unite[0]|euros }}/{{ x.unite[1] }}{% endif %}</span>{% if x.sante.nutriscore or x.sante.nova or x.sante.labels %}
+          <span class="small sante-ligne">{{ sante.faits(x.sante) }}</span>{% endif %}{% for m in x.mieux %}
+          <a class="small mieux-ligne" href="/tickets/{{ r.id }}/code/{{ it.id }}#mieux">{{ _("Mieux noté :") }} {{ sante.nutri(m.nutriscore) }} {{ m.nom }}{% if m.marque %} ({{ m.marque.split(',')[0] }}){% endif %}{{ sante.prix_mieux(m) }}</a>{% endfor %}{% for a in x.ailleurs[:1] %}
           <span class="small exact-ailleurs">{{ _("Le même : {prix} chez {magasin}", prix=a.p.prix|euros, magasin=a.p.magasin|title) }}{% if a.distance is not none %} · {{ a.distance }} km{% endif %} · {{ a.p.jour.strftime('%d/%m') }}</span>{% endfor %}{% endif %}</span>{% if r.store %}<form method="post" action="/tickets/{{ r.id }}/bio/{{ it.id }}" style="margin:0"><input type="hidden" name="retour" value="{{ retour }}"><button class="pastille-bio" type="submit" aria-pressed="{{ 'true' if bio else 'false' }}" aria-label="{{ _('Bio') }} : {{ it.product.nom if it.product else it.libelle }}">{{ _("Bio") }}</button></form>{% endif %}<span class="mono">{{ it.montant|euros }}</span></div>{% endfor %}
       {% if r.remises_globales %}<div class="row"><span class="grow">{{ _("Remises") }}</span><span class="mono">−{{ r.remises_globales|euros }}</span></div>{% endif %}
     </div>

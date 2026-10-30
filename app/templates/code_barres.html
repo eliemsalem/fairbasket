@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% import "_sante.html" as sante with context %}
 {% block title %}FairBasket — {{ _("Code-barres") }}{% endblock %}
 {% block body %}
 <main class="screen with-nav">
@@ -11,6 +12,20 @@
     {% if deja.image %}<img src="{{ deja.image }}" alt="" width="56" height="56" loading="lazy">{% endif %}
     <span class="grow"><strong>{{ deja.nom_exact or _("Produit reconnu") }}</strong><span class="small">{{ [deja.marque, deja.format]|select|join(' · ') }}{% if deja.marque or deja.format %} · {% endif %}{{ deja.code_barres }}</span></span>
   </div>
+  {% set s = deja.sante or {} %}{% if s.nutriscore or s.nova or s.labels %}<p class="small sante-ligne" style="margin:0">{{ sante.faits(s) }}</p>{% endif %}
+  {% if mieux %}
+  <h2 id="mieux" style="font-size:16px;margin:8px 0 0">{{ _("Mieux noté dans le même rayon") }}</h2>
+  <div class="rows">
+    {% for m in mieux %}
+    <div class="row">
+      {% if m.image %}<img src="{{ m.image }}" alt="" width="48" height="48" loading="lazy" class="vignette">{% else %}<span class="sans-photo" aria-hidden="true">▥</span>{% endif %}
+      <span class="grow">{{ sante.nutri(m.nutriscore) }} {{ m.nom }}<span class="small">{{ [m.marque.split(',')[0] if m.marque, m.format, ("NOVA " ~ m.nova) if m.nova]|select|join(' · ') }}{{ sante.prix_mieux(m) }}</span></span>
+      <form method="post" action="/liste" style="margin:0"><input type="hidden" name="nom" value="{{ m.nom }}{% if m.marque %} {{ m.marque.split(',')[0] }}{% endif %}"><button class="chip" type="submit">{{ _("Ajouter à ma liste") }}</button></form>
+    </div>
+    {% endfor %}
+  </div>
+  <p class="small" style="margin:0">{{ _("Notes officielles Nutri-Score et classement NOVA, d'après Open Food Facts. À vous de choisir.") }}</p>
+  {% endif %}
   <p class="small" style="margin:0">{{ _("Déjà connu : les prochains tickets « {libelle} » de {enseigne} le reconnaîtront tout seuls. Pas le bon ? Scannez à nouveau.", libelle=item.libelle, enseigne=item.receipt.store.enseigne) }}</p>
   {% endif %}
 

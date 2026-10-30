@@ -21,7 +21,8 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
 
-from . import adresses, apprentissage, assistant, auth, codebarres, config, i18n, liste, openprices, panier, stats, suivi, tickets
+from . import (adresses, apprentissage, assistant, auth, codebarres, config, i18n, liste, openprices, panier,
+               sante, stats, suivi, tickets)
 from .db import SessionLocal, get_db, init_db
 from .lecture import CATEGORIES
 from .models import Avis, LectureTicket, OpenPrice, Question, Product, ProductAlias, Receipt, ReceiptItem, ShoppingItem, Store, User, now
@@ -568,8 +569,11 @@ def ticket_detail(request: Request, receipt_id: int, doublon: int = 0, retour: s
     ecart = (r.total - (r.somme_articles - r.remises_globales)) if r.total is not None else None
     enseignes = sorted({e for e in db.scalars(select(Store.enseigne).join(Receipt).where(Receipt.user_id == user.id))
                         if e != "Inconnue"} | set(COULEURS))
+    exacts = _exacts(request, db, user, r)
     return page(request, "ticket.html", r=r, doublon=bool(doublon), ecart=ecart, enseignes=enseignes, retour=retour,
-                bilan=stats.bilan_ticket(db, user, r), exacts=_exacts(request, db, user, r))
+                bilan=stats.bilan_ticket(db, user, r), exacts=exacts,
+                bilan_sante=sante.bilan([(it.montant, (exacts[it.id]["alias"].sante or {}).get("nutriscore"))
+                                         for it in r.items if it.id in exacts]))
 
 
 def _exacts(request: Request, db: Session, user: User, r: Receipt) -> dict:
@@ -586,9 +590,12 @@ def _exacts(request: Request, db: Session, user: User, r: Receipt) -> dict:
         a = aliases.get(it.libelle)
         if a:
             prix = (it.montant / it.quantite).quantize(Decimal("0.01")) if it.quantite else it.montant
-            exacts[it.id] = {"alias": a, "unite": codebarres.prix_unite(it.montant, it.quantite, a.format),
+            unite = codebarres.prix_unite(it.montant, it.quantite, a.format)
+            exacts[it.id] = {"alias": a, "unite": unite, "sante": a.sante or {},
                              "ailleurs": [x for x in codebarres.ailleurs(db, a.code_barres, zone, prix)
-                                          if x["p"].prix < prix]}
+                                          if x["p"].prix < prix],
+                             "mieux": sante.avec_prix(db, user, (a.sante or {}).get("mieux", [])[:1], zone, a.format,
+                                                      unite)}
     return exacts
 
 
@@ -609,7 +616,15 @@ def ticket_code(request: Request, receipt_id: int, item_id: int, erreur: str = "
     deja = alias if alias and alias.code_barres else None
     nom = item.product.nom if item.product else item.libelle
     propositions = [] if deja else codebarres.propositions(nom, item.receipt.store.enseigne)
-    return page(request, "code_barres.html", item=item, deja=deja, propositions=propositions, erreur=erreur)
+    mieux = []
+    if deja:
+        if sante.a_rafraichir(deja):
+            sante.completer(db, deja)
+        unite = codebarres.prix_unite(item.montant, item.quantite, deja.format)
+        mieux = sante.avec_prix(db, user, (deja.sante or {}).get("mieux", []), _zone(request, db, user), deja.format,
+                                unite)
+    return page(request, "code_barres.html", item=item, deja=deja, propositions=propositions, erreur=erreur,
+                mieux=mieux)
 
 
 @app.post("/tickets/{receipt_id}/code/{item_id}")
@@ -619,7 +634,9 @@ def ticket_code_enregistrer(receipt_id: int, item_id: int, code: str = Form(""),
     code = codebarres.nettoyer(code)
     if not codebarres.valide(code):
         return RedirectResponse(f"/tickets/{receipt_id}/code/{item_id}?erreur=1", status_code=303)
-    codebarres.enregistrer(db, item, codebarres.fiche(code))
+    alias = codebarres.enregistrer(db, item, codebarres.fiche(code))
+    if alias is not None:
+        sante.completer(db, alias)
     suivi.noter(user.id, "code_barres", "/tickets/{receipt_id}/code/{item_id}", f"{item.libelle} → {code}")
     return RedirectResponse(f"/tickets/{receipt_id}#p{item.product_id}", status_code=303)
 
@@ -742,7 +759,8 @@ def avis_envoi(request: Request, message: str = Form(""), de: str = Form(""), re
 # --- Assistant « Demandez-moi » -------------------------------------------------
 
 EXEMPLES_QUESTIONS = ("Où trouver des pastilles lave-vaisselle moins chères ?",
-                      "Combien j'ai dépensé en fromage ce mois-ci ?", "Ajoute du lait à ma liste")
+                      "Combien j'ai dépensé en fromage ce mois-ci ?", "Une alternative plus saine aux céréales ?",
+                      "Ajoute du lait à ma liste")
 
 
 def _assistant_pour(user: User) -> User:

@@ -390,4 +390,26 @@ EN = {
     "Fiches produits : Open Food Facts (licence ODbL).": "Product data: Open Food Facts (ODbL licence).",
     "Scanner le code-barres (article exact)": "Scan the barcode (exact item)", "Changer le code-barres": "Change the barcode",
     "Le même : {prix} chez {magasin}": "Same item: {prix} at {magasin}",
+    # sante
+    "brut ou peu transformé": "unprocessed or minimally processed", "ingrédient culinaire": "culinary ingredient",
+    "transformé": "processed", "ultra-transformé": "ultra-processed", "Additifs : {liste}": "Additives: {liste}",
+    "Sans additif": "No additives", "Label Rouge": "Label Rouge", "Commerce équitable": "Fair trade",
+    "Pêche durable MSC": "MSC sustainable fishing", "Plein air": "Free range", "Végétarien": "Vegetarian",
+    "Sans huile de palme": "No palm oil", "Sans sucres ajoutés": "No added sugar", "Origine France": "French origin",
+    "Fabriqué en France": "Made in France", "chez {ou}": "at {ou}", "{ecart}/{unite} de moins": "{ecart}/{unite} less",
+    "Mieux noté :": "Better rated:", "Mieux noté dans le même rayon": "Better rated in the same aisle",
+    "Nutri-Score : {pct} % en A ou B, sur {montant} d'articles scannés.":
+        "Nutri-Score: {pct} % A or B, out of {montant} of scanned items.",
+    "Notes officielles Nutri-Score et classement NOVA, d'après Open Food Facts. À vous de choisir.":
+        "Official Nutri-Score ratings and NOVA groups, from Open Food Facts. Your choice.",
+    "Une alternative plus saine aux céréales ?": "A healthier alternative to cereals?",
+    "« {nom} » a le Nutri-Score {note} : je n'ai rien trouvé de mieux noté dans le même rayon.":
+        "« {nom} » has Nutri-Score {note}: I found nothing better rated in the same aisle.",
+    "Je n'ai pas trouvé de produit mieux noté pour « {produit} ». Scannez le code-barres du vôtre depuis un ticket : je comparerai dans son rayon exact.":
+        "I found no better-rated product for « {produit} ». Scan your product's barcode from a receipt: I'll compare within its exact aisle.",
+    " à {prix} chez {ou}": " at {prix} from {ou}",
+    "Votre « {nom} » a le Nutri-Score {note}. Mieux noté dans le même rayon : {mieux}, Nutri-Score {note_mieux}{prix}.":
+        "Your « {nom} » has Nutri-Score {note}. Better rated in the same aisle: {mieux}, Nutri-Score {note_mieux}{prix}.",
+    "Le mieux noté pour « {produit} » : {mieux}, Nutri-Score {note_mieux}{prix}.":
+        "Best rated for « {produit} »: {mieux}, Nutri-Score {note_mieux}{prix}.",
 }

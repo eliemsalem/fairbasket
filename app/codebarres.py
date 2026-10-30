@@ -109,6 +109,8 @@ def enregistrer(db: Session, item: ReceiptItem, f: dict) -> Optional[ProductAlia
     if alias is None:
         alias = ProductAlias(enseigne=item.receipt.store.enseigne, libelle=item.libelle, product=item.product)
         db.add(alias)
+    if alias.code_barres != f["code"]:
+        alias.sante = None  # autre article : sa sante est a reprendre
     alias.code_barres, alias.nom_exact, alias.marque = f["code"], f.get("nom"), f.get("marque")
     alias.format, alias.image = f.get("format"), f.get("image")
     db.commit()
