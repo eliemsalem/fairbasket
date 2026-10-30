@@ -281,6 +281,19 @@ EN = {
         "Your receipts, their files and your account will be permanently deleted. Prices already shared anonymously remain, with no link to you.",
     "Tapez SUPPRIMER pour confirmer": "Type SUPPRIMER to confirm", "Tout supprimer": "Delete everything",
     "Se déconnecter": "Log out", "Mentions légales": "Legal notice", "Confidentialité": "Privacy", "Conditions": "Terms",
+    # bilan d'un ticket
+    "Ce ticket comparé à vos achats": "This receipt compared with your purchases",
+    "Premiers achats de ces produits : la comparaison apparaîtra dès votre prochain ticket.":
+        "First purchase of these products: the comparison will appear with your next receipt.",
+    "économisés par rapport à vos derniers achats": "saved compared with your last purchases",
+    "de plus que vos derniers achats": "more than your last purchases", "comme vos derniers achats": "same as your last purchases",
+    "Sur {n} produit(s) déjà achetés, au prix à la pièce, au kilo ou au litre.":
+        "On {n} product(s) bought before, per item, kilo or litre.",
+    "moins cher(s)": "cheaper", "plus cher(s)": "more expensive",
+    "avant : {prix} chez {enseigne} le {date}": "before: {prix} at {enseigne} on {date}",
+    "Ailleurs, vous auriez payé {montant} de moins": "Elsewhere, you would have paid {montant} less",
+    "{produit} : {prix} chez {enseigne}": "{produit}: {prix} at {enseigne}",
+    "Nouveaux produits : {n}, comparés au prochain achat.": "New products: {n}, compared next time.",
     # assistant
     "Où faites-vous vos courses ?": "Where do you shop?",
     "Je trouve les magasins à côté de chez vous, puis je compare leurs prix.": "I find the stores near you, then compare their prices.",

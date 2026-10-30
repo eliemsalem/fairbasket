@@ -1,0 +1,51 @@
+{# Ce ticket compare aux achats d'avant : gagne ou paye plus, et ou c'etait moins cher #}
+{% set b = bilan %}
+{% macro prix_u(prix, unite) %}{{ prix|round(2)|euros }}{% if unite %}<span class="small"> / {{ _(unite) }}</span>{% endif %}{% endmacro %}
+<section class="bilan card" aria-labelledby="bilan-titre">
+  <span class="eyebrow" id="bilan-titre">{{ _("Ce ticket comparé à vos achats") }}</span>
+  {% if not b.compares %}
+    <p style="margin:0">{{ _("Premiers achats de ces produits : la comparaison apparaîtra dès votre prochain ticket.") }}</p>
+  {% else %}
+    {% set e = b.total_ecart %}
+    <div class="bilan-tete {{ 'gagne' if e < 0 else 'perd' if e > 0 else '' }}">
+      <span class="mono bilan-chiffre" data-compteur="{{ '%.2f'|format(e|abs) }}">{{ '−' if e < 0 else '+' if e > 0 else '' }}{{ (e|abs)|euros }}</span>
+      <span>{% if e < 0 %}{{ _("économisés par rapport à vos derniers achats") }}{% elif e > 0 %}{{ _("de plus que vos derniers achats") }}{% else %}{{ _("comme vos derniers achats") }}{% endif %}</span>
+    </div>
+    <span class="small">{{ _("Sur {n} produit(s) déjà achetés, au prix à la pièce, au kilo ou au litre.", n=b.compares) }}</span>
+    <div class="tiles">
+      <div class="bilan-tuile gagne"><strong>▼ {{ b.moins|length }}</strong> <span class="small">{{ _("moins cher(s)") }}{% if b.gain_moins %} · −{{ b.gain_moins|euros }}{% endif %}</span></div>
+      <div class="bilan-tuile perd"><strong>▲ {{ b.plus|length }}</strong> <span class="small">{{ _("plus cher(s)") }}{% if b.perte_plus %} · +{{ b.perte_plus|euros }}{% endif %}</span></div>
+    </div>
+    {% if b.plus or b.moins %}
+    <div class="rows">
+      {% for l in (b.plus[:4] + b.moins[:4]) %}
+      <a class="row" href="#p{{ l.product_id }}" style="text-decoration:none;color:inherit">
+        <span class="grow">{{ l.produit }}<br><span class="small">{{ _("avant : {prix} chez {enseigne} le {date}", prix=(l.avant_prix|round(2)|euros) ~ ((' / ' ~ _(l.affiche_unite)) if l.affiche_unite else ''), enseigne=_(l.avant_enseigne), date=l.avant_date.strftime('%d/%m')) }}</span></span>
+        <span style="text-align:right"><span class="mono">{{ prix_u(l.prix, l.affiche_unite) }}</span><br><strong class="small {{ 'perd' if l.ecart > 0 else 'gagne' }}">{{ '▲ +' if l.ecart > 0 else '▼ ' }}{{ l.pct }} %</strong></span>
+      </a>
+      {% endfor %}
+    </div>
+    {% endif %}
+  {% endif %}
+    {% if b.ailleurs %}
+    <div class="bon-a-savoir">
+      <strong>{{ _("Ailleurs, vous auriez payé {montant} de moins", montant=b.ailleurs_total|euros) }}</strong>
+      <ul style="margin:6px 0 0;padding-left:18px">{% for l in b.ailleurs %}<li>{{ _("{produit} : {prix} chez {enseigne}", produit=l.produit, prix=(l.ailleurs_prix|round(2)|euros) ~ ((' / ' ~ _(l.affiche_unite)) if l.affiche_unite else ''), enseigne=_(l.ailleurs_enseigne)) }}</li>{% endfor %}</ul>
+    </div>
+    {% endif %}
+  {% if b.nouveaux > 0 and b.compares %}<span class="small">{{ _("Nouveaux produits : {n}, comparés au prochain achat.", n=b.nouveaux) }}</span>{% endif %}
+</section>
+<script>
+(function () {
+  var c = document.querySelector(".bilan-chiffre[data-compteur]");
+  if (!c || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  var fin = parseFloat(c.dataset.compteur), signe = c.textContent.trim().charAt(0), t0 = null, dec = c.textContent.indexOf(",") >= 0;
+  if (!(fin > 0)) return;
+  function pas(t) {
+    t0 = t0 || t; var k = Math.min(1, (t - t0) / 900), v = (fin * (1 - Math.pow(1 - k, 3))).toFixed(2);
+    c.textContent = signe + (dec ? v.replace(".", ",") : v) + " €";
+    if (k < 1) requestAnimationFrame(pas);
+  }
+  requestAnimationFrame(pas);
+})();
+</script>

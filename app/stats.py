@@ -309,3 +309,77 @@ def rayon(db: Session, user: User, categorie: str, aujourd_hui: Optional[date] =
             "total_12": sum((par_mois[m] for m in mois12), ZERO),
             "produits": sorted(par_produit.values(), key=lambda p: -p["total"])[:20],
             "moins_cher": sorted(moins_cher, key=lambda a: -a["ecart"])[:10]}
+
+
+SEUIL_ECART = Decimal("0.02")  # en dessous, meme prix (arrondis, centimes)
+
+
+def bilan_ticket(db: Session, user: User, receipt: Receipt) -> dict:
+    """Ce ticket compare aux achats d'avant : article par article, ramene a la piece, au kilo ou au litre,
+    le prix paye contre le dernier prix paye avant (ou que ce soit), et contre le moins cher vu dans une autre
+    enseigne. Montre tout de suite si la personne a gagne ou paye plus, et ou elle aurait paye moins."""
+    tickets = db.scalars(
+        select(Receipt).where(Receipt.user_id == user.id, Receipt.achete_le.is_not(None), Receipt.id != receipt.id)
+        .options(selectinload(Receipt.items).selectinload(ReceiptItem.product), selectinload(Receipt.store))
+    ).all()
+    quand = receipt.achete_le or datetime.max
+    enseigne = receipt.store.enseigne if receipt.store else None
+    # (nom sans format, unite) -> liste (date, enseigne, prix a l'unite), du plus ancien au plus recent
+    historique = defaultdict(list)
+    for r in sorted(tickets, key=lambda r: r.achete_le):
+        if not r.store or r.store.enseigne in ("Inconnue", "Marché", "Commerce"):
+            continue
+        for it in r.items:
+            if not it.product_id:
+                continue
+            fmt = format_produit(it.product.nom, it.product.categorie)
+            prix, unite = prix_par_unite(it, fmt, arrondi=False)
+            if prix:
+                historique[(fmt.cle, unite)].append((r.achete_le, r.store.enseigne, prix))
+
+    lignes, compares = [], 0
+    for it in receipt.items:
+        if not it.product_id or it.montant <= 0:
+            continue
+        fmt = format_produit(it.product.nom, it.product.categorie)
+        prix, unite = prix_par_unite(it, fmt, arrondi=False)
+        if not prix:
+            continue
+        avant = [h for h in historique.get((fmt.cle, unite), []) if h[0] < quand]
+        apres_ou_meme = [h for h in historique.get((fmt.cle, unite), [])]
+        if not apres_ou_meme:
+            continue
+        compares += bool(avant)
+        unites = it.montant / prix  # combien de pieces, de kilos ou de litres sur la ligne
+        ligne = {"produit": it.product.nom, "product_id": it.product_id, "prix": prix, "unite": unite,
+                 "affiche_unite": None if unite == "article" or (unite == "pièce" and not fmt.paquet
+                                                                 and it.quantite == 1) else unite}
+        if avant:
+            d, ens, p = avant[-1]
+            ligne.update(avant_prix=p, avant_enseigne=ens, avant_date=d,
+                         ecart=((prix - p) * unites).quantize(Decimal("0.01")),
+                         pct=round((prix - p) / p * 100) if p else None)
+        # le moins cher vu dans une autre enseigne (dernier prix de chaque enseigne)
+        derniers = {}
+        for d, ens, p in apres_ou_meme:
+            if ens != enseigne:
+                derniers[ens] = p
+        if derniers:
+            ens, p = min(derniers.items(), key=lambda kv: kv[1])
+            if prix - p > SEUIL_ECART / max(unites, Decimal("1")):
+                ligne.update(ailleurs_enseigne=ens, ailleurs_prix=p,
+                             ailleurs_gain=((prix - p) * unites).quantize(Decimal("0.01")))
+        lignes.append(ligne)
+
+    moins = [l for l in lignes if l.get("ecart") is not None and l["ecart"] <= -SEUIL_ECART]
+    plus = [l for l in lignes if l.get("ecart") is not None and l["ecart"] >= SEUIL_ECART]
+    ailleurs = sorted((l for l in lignes if l.get("ailleurs_gain")), key=lambda l: -l["ailleurs_gain"])
+    total_ecart = sum((l["ecart"] for l in moins + plus), Decimal("0"))
+    return {
+        "compares": compares, "total_ecart": total_ecart,
+        "moins": sorted(moins, key=lambda l: l["ecart"]), "plus": sorted(plus, key=lambda l: -l["ecart"]),
+        "gain_moins": -sum((l["ecart"] for l in moins), Decimal("0")),
+        "perte_plus": sum((l["ecart"] for l in plus), Decimal("0")),
+        "ailleurs": ailleurs[:5], "ailleurs_total": sum((l["ailleurs_gain"] for l in ailleurs), Decimal("0")),
+        "nouveaux": sum(1 for it in receipt.items if it.product_id) - compares,
+    }

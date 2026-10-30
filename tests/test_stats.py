@@ -1,5 +1,7 @@
 from datetime import date
 
+from sqlalchemy import select
+
 from app.stats import tableau_de_bord
 from app.tickets import enregistrer_ticket
 from tests.test_tickets import ALDI, _article, db, fausse_lecture, nouvel_utilisateur  # noqa: F401
@@ -161,3 +163,24 @@ def test_un_rayon(db):
     a = ry["moins_cher"]
     assert len(a) == 1 and a[0]["enseigne"] == "Carrefour" and a[0]["habituelle"] == "Biocoop" and a[0]["ecart"] == 11 and a[0]["unite"] == "pièce"
     assert rayon(db, u, "Fromages", AUJ)["produits"] == []
+
+
+def test_bilan_d_un_ticket(db):
+    from app.stats import bilan_ticket
+    u = nouvel_utilisateur(db, "a@x.fr")
+    ticket(db, u, 1, "Carrefour", "2026-09-03", [_article("X6 OEUFS CRF BIO", "Œufs bio ×6", 2.49),
+                                                  _article("LAIT", "Lait bio 1 L", 1.50)])
+    r = ticket(db, u, 2, "Monoprix", "2026-10-15", [_article("OEUFS MPX 6", "Œufs bio ×6", 2.82),
+                                                     _article("LAIT", "Lait bio 1 L", 1.20),
+                                                     _article("KEFIR", "Kéfir 1 L", 3.0)])
+    b = bilan_ticket(db, u, r)
+    assert b["compares"] == 2 and b["nouveaux"] == 1
+    assert [l["produit"] for l in b["plus"]] == ["Œufs bio ×6"] and float(b["perte_plus"]) == 0.33
+    assert [l["produit"] for l in b["moins"]] == ["Lait bio 1 L"] and float(b["gain_moins"]) == 0.30
+    assert float(b["total_ecart"]) == 0.03 and b["plus"][0]["pct"] == 13
+    assert b["ailleurs"][0]["ailleurs_enseigne"] == "Carrefour" and float(b["ailleurs_total"]) == 0.33
+    # le premier ticket : rien a comparer
+    from app.models import Receipt
+    premier = bilan_ticket(db, u, db.scalar(select(Receipt).where(Receipt.id != r.id)))
+    assert premier["compares"] == 0 and premier["plus"] == []  # rien avant lui
+    assert [l["produit"] for l in premier["ailleurs"]] == ["Lait bio 1 L"]  # moins cher chez Monoprix ensuite

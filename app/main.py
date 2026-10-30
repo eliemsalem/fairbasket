@@ -568,7 +568,8 @@ def ticket_detail(request: Request, receipt_id: int, doublon: int = 0, retour: s
     ecart = (r.total - (r.somme_articles - r.remises_globales)) if r.total is not None else None
     enseignes = sorted({e for e in db.scalars(select(Store.enseigne).join(Receipt).where(Receipt.user_id == user.id))
                         if e != "Inconnue"} | set(COULEURS))
-    return page(request, "ticket.html", r=r, doublon=bool(doublon), ecart=ecart, enseignes=enseignes, retour=retour)
+    return page(request, "ticket.html", r=r, doublon=bool(doublon), ecart=ecart, enseignes=enseignes, retour=retour,
+                bilan=stats.bilan_ticket(db, user, r))
 
 
 @app.post("/tickets/{receipt_id}/corriger")

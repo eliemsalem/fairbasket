@@ -9,6 +9,7 @@
     <span style="font-size:14px;font-weight:600">{{ _(r.store.enseigne) if r.store else _('Magasin inconnu') }}{% if r.store and r.store.nom|lower != r.store.enseigne|lower %} · {{ r.store.nom|title }}{% endif %} · {{ r.achete_le.strftime('%d/%m/%Y · %H:%M') if r.achete_le else _('date inconnue') }}</span>
   </div>
   <h1 class="mono" style="font-size:40px;line-height:1">{{ r.total|euros }}</h1>
+  {% include "_bilan_ticket.html" %}
 
   {% set s = r.store %}
   {% if s and s.enseigne != 'Inconnue' %}
