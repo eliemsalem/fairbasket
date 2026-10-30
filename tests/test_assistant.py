@@ -241,3 +241,22 @@ def test_sans_quartier_on_le_demande_puis_on_repond(client, links, monkeypatch):
     monkeypatch.setattr(adresses, "situer", lambda texte: None)
     r = client.post("/position", data={"adresse": "zzz", "garder": "1", "question": "beurre ?"}, follow_redirects=False)
     assert "lieu=introuvable" in r.headers["location"]
+
+
+def test_article_scanne_compare_au_meme_code_meme_si_le_nom_differe(db):
+    from datetime import date
+    from decimal import Decimal
+
+    from app.models import OpenPrice, ProductAlias
+
+    u = nouvel_utilisateur(db, "code@x.fr")
+    ticket(db, u, 1, "Monoprix", "2026-10-03", [_article("PAVE SAUM", "Pavé de saumon", 5.40)])
+    alias = db.query(ProductAlias).filter_by(enseigne="Monoprix", libelle="PAVE SAUM").one()
+    alias.code_barres = "3350030224462"
+    # nom ecrit tout autrement dans Open Prices : seul le code les relie
+    db.add(OpenPrice(id=7, nom="Monop bio poisson 240g", code_barres="3350030224462", prix=Decimal("4.99"),
+                     jour=date(2026, 10, 20), magasin="MONOP' RIQUET", ville="Paris", lat=48.888, lon=2.375))
+    db.commit()
+    zone = {"lat": 48.886, "lon": 2.37, "source": "quartier"}
+    offres = assistant.chercher_prix(db, u, zone, "pavé de saumon")["offres"]
+    assert any(o["prix"] == 4.99 and o["source"] == "open_prices" for o in offres)

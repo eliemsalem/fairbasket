@@ -137,3 +137,12 @@ textarea{height:auto;min-height:64px;padding:12px 14px;resize:vertical}
 .bilan .perd{color:var(--danger)}
 .bilan-tuile{padding:10px 12px;border-radius:10px;background:var(--soft)}
 .bilan .row .mono{white-space:nowrap}
+/* code-barres : l'article exact */
+.exact-ligne,.exact-ailleurs{display:block}
+.exact-ligne{color:var(--fg)}
+.exact-ailleurs{color:var(--bio);font-weight:600}
+.exact{display:flex;gap:12px;align-items:center}
+.exact img,.proposition img{border-radius:8px;object-fit:contain;background:#fff;flex:none}
+.scan video{width:100%;max-height:260px;border-radius:12px;background:#000;object-fit:cover;margin-top:10px}
+.proposition{width:100%;background:none;border:0;border-bottom:1px solid var(--line);font:inherit;text-align:left;cursor:pointer}
+.sans-photo{width:48px;height:48px;display:flex;align-items:center;justify-content:center;background:var(--soft);border-radius:8px;flex:none}

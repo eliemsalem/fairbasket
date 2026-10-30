@@ -63,6 +63,8 @@ OPEN_PRICES_RAYON_KM = int(os.environ.get("OPEN_PRICES_RAYON_KM", "12"))
 OPEN_PRICES_PRES_KM = float(os.environ.get("OPEN_PRICES_PRES_KM", "5"))
 OPEN_PRICES_JOURS = 90
 ADRESSES_AUTO = os.environ.get("ADRESSES_AUTO", "1") == "1"  # adresse des magasins cherchee toute seule (OSM, BAN)
+# fiches et propositions de produits chez Open Food Facts quand on scanne un code-barres
+OPEN_FOOD_FACTS_AUTO = os.environ.get("OPEN_FOOD_FACTS_AUTO", "1") == "1"
 OPEN_PRICES_AUTO = os.environ.get("OPEN_PRICES_AUTO", "1") == "1"  # synchronisation quotidienne en tache de fond
 
 # Assistant (« Demandez-moi ») : le code comprend d'abord la question, Claude seulement en secours.

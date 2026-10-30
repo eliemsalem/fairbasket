@@ -182,6 +182,12 @@ class ProductAlias(Base):
     libelle: Mapped[str] = mapped_column(String(120))
     product_id: Mapped[int] = mapped_column(ForeignKey("products.id"))
     product: Mapped[Product] = relationship()
+    # code-barres scanne une fois par quelqu'un : l'article exact (fiche Open Food Facts quand elle existe)
+    code_barres: Mapped[Optional[str]] = mapped_column(String(32), index=True)
+    nom_exact: Mapped[Optional[str]] = mapped_column(String(200))
+    marque: Mapped[Optional[str]] = mapped_column(String(120))
+    format: Mapped[Optional[str]] = mapped_column(String(40))
+    image: Mapped[Optional[str]] = mapped_column(String(300))
 
 
 class SharedPrice(Base):

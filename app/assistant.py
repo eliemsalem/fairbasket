@@ -25,7 +25,7 @@ from sqlalchemy.orm import Session, selectinload
 from . import auth, config, i18n, liste, openprices, stats
 from .apprentissage import cout_usd, en_json
 from .lecture import CATEGORIES
-from .models import ExpressionApprise, Question, Receipt, ReceiptItem, Store, User
+from .models import ExpressionApprise, OpenPrice, ProductAlias, Question, Receipt, ReceiptItem, Store, User
 from .recherche import SEUIL, score
 from .tickets import cle_produit
 
@@ -156,7 +156,20 @@ def chercher_prix(db: Session, user: User, zone: Optional[dict], produit: str, *
     from .panier import enseigne_du_magasin
 
     offres = []
-    for f in stats.comparaisons(db, user, produit)["produits"][:3]:
+    produits = stats.comparaisons(db, user, produit)["produits"][:3]
+    # article exact (code-barres scanne) : le meme code dans Open Prices, quel que soit le nom ecrit
+    codes = set(db.scalars(select(ProductAlias.code_barres).where(
+        ProductAlias.product_id.in_([f["id"] for f in produits]), ProductAlias.code_barres.is_not(None))))
+    for code in codes:
+        for p in openprices.proches(db.scalars(select(OpenPrice).where(OpenPrice.code_barres == code)
+                                               .order_by(OpenPrice.jour.desc())).all(), zone, RAYONS_KM[-1]):
+            kilo = openprices.prix_au_kilo(p)
+            offres.append(_offre("open_prices", " ".join(x for x in (p.nom, (p.marque or "").split(",")[0]) if x),
+                                 float(p.prix), zone, enseigne=enseigne_du_magasin(p.magasin), magasin=p.magasin,
+                                 ville=p.ville, lat=p.lat, lon=p.lon,
+                                 prix_unitaire=float(kilo) if kilo is not None else None,
+                                 unite=openprices.unite_kilo(p) if kilo is not None else None, date=p.jour.isoformat()))
+    for f in produits:
         for l in f["lignes"]:
             # prix des tickets deja ramene a la piece, au kilo ou au litre quand l'unite est connue
             offres.append(_offre("tickets", f["nom"], float(l["prix"]), zone, store=l.get("store"),

@@ -375,4 +375,19 @@ EN = {
     "Épicerie salée": "Savoury groceries", "Épicerie sucrée": "Sweet groceries", "Boissons": "Drinks",
     "Surgelés": "Frozen", "Hygiène et beauté": "Health and beauty", "Entretien et maison": "Household", "Autre": "Other",
     "Inconnue": "Unknown", "Marché": "Market", "Commerce": "Shop",
+    # code-barres
+    "Code-barres": "Barcode", "Produit reconnu": "Product recognised",
+    "Déjà connu : les prochains tickets « {libelle} » de {enseigne} le reconnaîtront tout seuls. Pas le bon ? Scannez à nouveau.":
+        "Already known: the next « {libelle} » receipts from {enseigne} will recognise it on their own. Wrong one? Scan again.",
+    "Ce code-barres ne semble pas complet.": "This barcode doesn't look complete.",
+    "Vérifiez les chiffres sous les barres (8 ou 13 en général).": "Check the digits under the bars (usually 8 or 13).",
+    "Scanner le code-barres du paquet": "Scan the barcode on the pack",
+    "Visez les barres, à 10–15 cm. Ça se fait tout seul.": "Aim at the bars, 10–15 cm away. It happens on its own.",
+    "Ou touchez le bon produit": "Or tap the right product",
+    "Ou tapez les chiffres : 3350030224462": "Or type the digits: 3350030224462",
+    "Une seule fois par produit : ensuite FairBasket connaît l'article exact (marque, format, vrai prix au kilo) et le compare au même article dans les autres magasins.":
+        "Only once per product: FairBasket then knows the exact item (brand, size, true price per kilo) and compares it with the same item in other stores.",
+    "Fiches produits : Open Food Facts (licence ODbL).": "Product data: Open Food Facts (ODbL licence).",
+    "Scanner le code-barres (article exact)": "Scan the barcode (exact item)", "Changer le code-barres": "Change the barcode",
+    "Le même : {prix} chez {magasin}": "Same item: {prix} at {magasin}",
 }

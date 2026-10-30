@@ -21,10 +21,10 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
 
-from . import adresses, apprentissage, assistant, auth, config, i18n, liste, openprices, panier, stats, suivi, tickets
+from . import adresses, apprentissage, assistant, auth, codebarres, config, i18n, liste, openprices, panier, stats, suivi, tickets
 from .db import SessionLocal, get_db, init_db
 from .lecture import CATEGORIES
-from .models import Avis, LectureTicket, OpenPrice, Question, Product, Receipt, ReceiptItem, ShoppingItem, Store, User, now
+from .models import Avis, LectureTicket, OpenPrice, Question, Product, ProductAlias, Receipt, ReceiptItem, ShoppingItem, Store, User, now
 
 APP_DIR = config.ROOT / "app"
 
@@ -569,7 +569,59 @@ def ticket_detail(request: Request, receipt_id: int, doublon: int = 0, retour: s
     enseignes = sorted({e for e in db.scalars(select(Store.enseigne).join(Receipt).where(Receipt.user_id == user.id))
                         if e != "Inconnue"} | set(COULEURS))
     return page(request, "ticket.html", r=r, doublon=bool(doublon), ecart=ecart, enseignes=enseignes, retour=retour,
-                bilan=stats.bilan_ticket(db, user, r))
+                bilan=stats.bilan_ticket(db, user, r), exacts=_exacts(request, db, user, r))
+
+
+def _exacts(request: Request, db: Session, user: User, r: Receipt) -> dict:
+    """Lignes dont le code-barres est connu : l'article exact, son vrai prix au kilo, et ce meme article ailleurs."""
+    if r.store is None:
+        return {}
+    aliases = {a.libelle: a for a in db.scalars(select(ProductAlias).where(
+        ProductAlias.enseigne == r.store.enseigne, ProductAlias.code_barres.is_not(None),
+        ProductAlias.libelle.in_([it.libelle for it in r.items])))}
+    if not aliases:
+        return {}
+    zone, exacts = _zone(request, db, user), {}
+    for it in r.items:
+        a = aliases.get(it.libelle)
+        if a:
+            prix = (it.montant / it.quantite).quantize(Decimal("0.01")) if it.quantite else it.montant
+            exacts[it.id] = {"alias": a, "unite": codebarres.prix_unite(it.montant, it.quantite, a.format),
+                             "ailleurs": [x for x in codebarres.ailleurs(db, a.code_barres, zone, prix)
+                                          if x["p"].prix < prix]}
+    return exacts
+
+
+def _ligne_du_ticket(db: Session, user: User, receipt_id: int, item_id: int) -> ReceiptItem:
+    r = _ticket_de(db, user, receipt_id)
+    item = next((it for it in r.items if it.id == item_id), None)
+    if item is None or r.store is None:
+        raise HTTPException(status_code=404)
+    return item
+
+
+@app.get("/tickets/{receipt_id}/code/{item_id}", response_class=HTMLResponse)
+def ticket_code(request: Request, receipt_id: int, item_id: int, erreur: str = "",
+                user: User = Depends(require_user), db: Session = Depends(get_db)):
+    """Scanner le code-barres d'une ligne (ou le taper, ou toucher le bon produit parmi quelques propositions)."""
+    item = _ligne_du_ticket(db, user, receipt_id, item_id)
+    alias = codebarres.alias_de(db, item)
+    deja = alias if alias and alias.code_barres else None
+    nom = item.product.nom if item.product else item.libelle
+    propositions = [] if deja else codebarres.propositions(nom, item.receipt.store.enseigne)
+    return page(request, "code_barres.html", item=item, deja=deja, propositions=propositions, erreur=erreur)
+
+
+@app.post("/tickets/{receipt_id}/code/{item_id}")
+def ticket_code_enregistrer(receipt_id: int, item_id: int, code: str = Form(""), user: User = Depends(require_user),
+                            db: Session = Depends(get_db)):
+    item = _ligne_du_ticket(db, user, receipt_id, item_id)
+    code = codebarres.nettoyer(code)
+    if not codebarres.valide(code):
+        return RedirectResponse(f"/tickets/{receipt_id}/code/{item_id}?erreur=1", status_code=303)
+    codebarres.enregistrer(db, item, codebarres.fiche(code))
+    suivi.noter(user.id, "code_barres", "/tickets/{receipt_id}/code/{item_id}", f"{item.libelle} → {code}")
+    return RedirectResponse(f"/tickets/{receipt_id}#p{item.product_id}", status_code=303)
 
 
 @app.post("/tickets/{receipt_id}/corriger")

@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+{% block title %}FairBasket — {{ _("Code-barres") }}{% endblock %}
+{% block body %}
+<main class="screen with-nav">
+  <div class="topbar"><a href="/tickets/{{ item.receipt_id }}#p{{ item.product_id }}" aria-label="{{ _('Retour') }}" style="width:44px;height:44px;display:flex;align-items:center"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></a></div>
+  <h1 style="font-size:24px;margin:0">{{ item.product.nom if item.product else item.libelle|capitalize }}</h1>
+  <p class="small" style="margin:0">{{ item.receipt.store.enseigne }} · « {{ item.libelle }} » · {{ item.montant|euros }}</p>
+
+  {% if deja %}
+  <div class="card exact">
+    {% if deja.image %}<img src="{{ deja.image }}" alt="" width="56" height="56" loading="lazy">{% endif %}
+    <span class="grow"><strong>{{ deja.nom_exact or _("Produit reconnu") }}</strong><span class="small">{{ [deja.marque, deja.format]|select|join(' · ') }}{% if deja.marque or deja.format %} · {% endif %}{{ deja.code_barres }}</span></span>
+  </div>
+  <p class="small" style="margin:0">{{ _("Déjà connu : les prochains tickets « {libelle} » de {enseigne} le reconnaîtront tout seuls. Pas le bon ? Scannez à nouveau.", libelle=item.libelle, enseigne=item.receipt.store.enseigne) }}</p>
+  {% endif %}
+
+  {% if erreur %}<p class="card" role="alert" style="margin:0;color:var(--danger)"><strong>{{ _("Ce code-barres ne semble pas complet.") }}</strong> {{ _("Vérifiez les chiffres sous les barres (8 ou 13 en général).") }}</p>{% endif %}
+
+  <div class="scan">
+    <button type="button" class="btn" data-scanner>📷 {{ _("Scanner le code-barres du paquet") }}</button>
+    <video data-video playsinline muted hidden></video>
+    <p class="small" data-scan-info hidden>{{ _("Visez les barres, à 10–15 cm. Ça se fait tout seul.") }}</p>
+  </div>
+
+  {% if propositions %}
+  <h2 style="font-size:16px;margin:8px 0 0">{{ _("Ou touchez le bon produit") }}</h2>
+  <div class="rows">
+    {% for p in propositions %}
+    <form method="post" action="/tickets/{{ item.receipt_id }}/code/{{ item.id }}" style="margin:0">
+      <input type="hidden" name="code" value="{{ p.code }}">
+      <button type="submit" class="row proposition">
+        {% if p.image %}<img src="{{ p.image }}" alt="" width="48" height="48" loading="lazy">{% else %}<span class="sans-photo" aria-hidden="true">▥</span>{% endif %}
+        <span class="grow">{{ p.nom }}<span class="small">{{ [p.marque, p.format]|select|join(' · ') }}</span></span>
+      </button>
+    </form>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <form method="post" action="/tickets/{{ item.receipt_id }}/code/{{ item.id }}" class="demander" data-form-code>
+    <label class="visually-hidden" for="code">{{ _("Code-barres") }}</label>
+    <input id="code" name="code" type="text" inputmode="numeric" autocomplete="off" maxlength="20" required placeholder="{{ _('Ou tapez les chiffres : 3350030224462') }}">
+    <button class="btn ghost" type="submit">{{ _("OK") }}</button>
+  </form>
+  <p class="small" style="margin:0">{{ _("Une seule fois par produit : ensuite FairBasket connaît l'article exact (marque, format, vrai prix au kilo) et le compare au même article dans les autres magasins.") }}</p>
+  <p class="small" style="margin:0">{{ _("Fiches produits : Open Food Facts (licence ODbL).") }}</p>
+</main>
+<script>
+(function () {
+  var bouton = document.querySelector("[data-scanner]"), video = document.querySelector("[data-video]"),
+      info = document.querySelector("[data-scan-info]"), form = document.querySelector("[data-form-code]");
+  function envoyer(code) {
+    if (navigator.vibrate) navigator.vibrate(80);
+    form.elements.code.value = code; form.submit();
+  }
+  function arreter() { if (video.srcObject) video.srcObject.getTracks().forEach(function (t) { t.stop(); }); }
+  function natif(detecteur) {
+    navigator.mediaDevices.getUserMedia({video: {facingMode: "environment"}}).then(function (flux) {
+      video.srcObject = flux; video.hidden = false; info.hidden = false; video.play();
+      var fini = false;
+      (function regarder() {
+        if (fini) return;
+        detecteur.detect(video).then(function (codes) {
+          if (codes.length) { fini = true; arreter(); envoyer(codes[0].rawValue); }
+          else setTimeout(regarder, 200);
+        }).catch(function () { setTimeout(regarder, 400); });
+      })();
+    }).catch(echec);
+  }
+  function zxing() {  // iPhone et navigateurs sans detecteur integre
+    var s = document.createElement("script");
+    s.src = "https://unpkg.com/@zxing/library@0.21.3/umd/index.min.js";
+    s.onload = function () {
+      var lecteur = new ZXing.BrowserMultiFormatReader();
+      video.hidden = false; info.hidden = false;
+      lecteur.decodeFromConstraints({video: {facingMode: "environment"}}, video, function (resultat) {
+        if (resultat) { lecteur.reset(); envoyer(resultat.getText()); }
+      }).catch(echec);
+    };
+    s.onerror = echec;
+    document.head.appendChild(s);
+  }
+  function echec() { bouton.disabled = false; video.hidden = true; form.elements.code.focus(); }
+  bouton.addEventListener("click", function () {
+    bouton.disabled = true;
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { echec(); return; }
+    if ("BarcodeDetector" in window) {
+      BarcodeDetector.getSupportedFormats().then(function (f) {
+        var voulus = ["ean_13", "ean_8", "upc_a"].filter(function (x) { return f.indexOf(x) >= 0; });
+        if (voulus.length) natif(new BarcodeDetector({formats: voulus})); else zxing();
+      }).catch(zxing);
+    } else zxing();
+  });
+  window.addEventListener("pagehide", arreter);
+})();
+</script>
+{% endblock %}
