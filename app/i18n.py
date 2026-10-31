@@ -205,7 +205,7 @@ EN = {
     "Autour de moi": "Near me",
     "Le bon nom du produit (précisez bio, marque, format si besoin)":
         "The right product name (add organic, brand, size if needed)",
-    "Corriger partout": "Fix everywhere",
+    "Corriger": "Fix",
     "Cochez les cases encadrées en rouge pour créer votre compte.":
         "Tick the boxes outlined in red to create your account.",
     "L'e-mail peut arriver dans les spams : pensez à y regarder, et touchez « Ce n'est pas un spam ».":
@@ -214,8 +214,8 @@ EN = {
         "Prices actually paid on your receipts, discounts included, per item, per kilo or per litre: a pack of 2 avocados compares with a single one.", "Bio": "Organic",
     "Touchez un prix pour voir le ticket. Pas le même produit ? Touchez son nom sur le ticket pour le corriger.":
         "Tap a price to see the receipt. Not the same product? Tap its name on the receipt to fix it.",
-    "Toutes les lignes « {libelle} » de cette enseigne prendront ce nom, et les prochains tickets aussi.":
-        "Every “{libelle}” line from this chain will take this name, and future receipts too.",
+    "Vos lignes « {libelle} » de cette enseigne prennent ce nom tout de suite, et vos prochains tickets aussi. Pour les autres, c'est un avis : il s'applique dès qu'il est le mieux soutenu.":
+        "Your “{libelle}” lines from this chain take this name right away, and your future receipts too. For others it counts as a vote: it applies once it is the best supported.",
     "Exemple réel": "Real example",
     "Ce que FairBasket a trouvé dans les tickets d'un testeur": "What FairBasket found in a tester's receipts",
     "Lait bio Lactel 1 L": "Lactel organic milk 1 L", "même marque, même bouteille": "same brand, same bottle",
@@ -412,4 +412,18 @@ EN = {
         "Your « {nom} » has Nutri-Score {note}. Better rated in the same aisle: {mieux}, Nutri-Score {note_mieux}{prix}.",
     "Le mieux noté pour « {produit} » : {mieux}, Nutri-Score {note_mieux}{prix}.":
         "Best rated for « {produit} »: {mieux}, Nutri-Score {note_mieux}{prix}.",
+    "Merci ! Ça aide tous ceux qui achètent cet article.": "Thanks! This helps everyone who buys this item.",
+    "Une petite vérification, si vous voulez": "A quick check, if you like",
+    "« {libelle} », c'est bien :": "“{libelle}” is it really:",
+    "Oui": "Yes",
+    "Non, corriger": "No, fix it",
+    "Un autre code-barres est déjà retenu pour « {libelle} ». Votre scan compte comme un avis : il l'emportera si quelqu'un d'autre le confirme.":
+        "Another barcode is already kept for “{libelle}”. Your scan counts as a vote: it will win if someone else confirms it.",
+    "Vos corrections ont servi à {n} personnes": "Your fixes have helped {n} people",
+    "Vos corrections ont servi à une autre personne": "Your fixes have helped one other person",
+    "Merci pour vos {n} corrections": "Thanks for your {n} fixes",
+    "Merci pour votre correction": "Thanks for your fix",
+    "Les noms de produits que vous corrigez, confirmez ou scannez aident tous ceux qui achètent les mêmes articles. Votre nom n'est jamais montré.":
+        "Product names you fix, confirm or scan help everyone who buys the same items. Your name is never shown.",
+    "Produit type : {type}, comparé entre enseignes": "Product type: {type}, compared across chains",
 }

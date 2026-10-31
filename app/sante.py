@@ -15,7 +15,7 @@ from typing import Callable, Optional
 from sqlalchemy import select, tuple_
 from sqlalchemy.orm import Session
 
-from . import codebarres, config
+from . import codebarres, config, rayons
 from .models import ProductAlias, Receipt, ReceiptItem, Store, User
 
 log = logging.getLogger("fairbasket.sante")
@@ -147,6 +147,9 @@ def completer(db: Session, alias: ProductAlias, get: Optional[Callable] = None) 
     s["mieux"] = mieux_notes(s.get("categories") or [], alias.enseigne, s.get("nutriscore"), alias.code_barres, get)
     s["le"] = date.today().isoformat()
     alias.sante = s
+    exact = rayons.type_des_categories(s.get("categories") or [])
+    if exact and alias.product is not None and not alias.product.type_off:  # le rayon exact de l'article scanne
+        alias.product.type_off, alias.product.type_nom = exact[0], exact[1][:120]
     db.commit()
     return True
 

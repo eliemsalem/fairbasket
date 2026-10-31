@@ -29,6 +29,7 @@
   <p class="small" style="margin:0">{{ _("Déjà connu : les prochains tickets « {libelle} » de {enseigne} le reconnaîtront tout seuls. Pas le bon ? Scannez à nouveau.", libelle=item.libelle, enseigne=item.receipt.store.enseigne) }}</p>
   {% endif %}
 
+  {% if autre %}<p class="card" role="status" style="margin:0">{{ _("Un autre code-barres est déjà retenu pour « {libelle} ». Votre scan compte comme un avis : il l'emportera si quelqu'un d'autre le confirme.", libelle=item.libelle) }}</p>{% endif %}
   {% if erreur %}<p class="card" role="alert" style="margin:0;color:var(--danger)"><strong>{{ _("Ce code-barres ne semble pas complet.") }}</strong> {{ _("Vérifiez les chiffres sous les barres (8 ou 13 en général).") }}</p>{% endif %}
 
   <div class="scan">

@@ -49,6 +49,7 @@ class User(Base):
     avis: Mapped[list["Avis"]] = relationship(cascade="all, delete-orphan")
     questions: Mapped[list["Question"]] = relationship(cascade="all, delete-orphan")
     lectures: Mapped[list["LectureTicket"]] = relationship(cascade="all, delete-orphan")
+    contributions: Mapped[list["Contribution"]] = relationship(cascade="all, delete-orphan")
 
 
 class LoginToken(Base):
@@ -169,6 +170,10 @@ class Product(Base):
     categorie: Mapped[Optional[str]] = mapped_column(String(40))
     # famille generique (« poisson », « fromage », « œufs ») : pour chercher par le sens
     famille: Mapped[Optional[str]] = mapped_column(String(60))
+    # produit type : rayon Open Food Facts (« en:half-salted-butter », « Beurres demi-sel »), commun a toutes les
+    # enseignes ; "" quand aucun rayon ne correspond (voir rayons.py)
+    type_off: Mapped[Optional[str]] = mapped_column(String(80), index=True)
+    type_nom: Mapped[Optional[str]] = mapped_column(String(120))
 
 
 class ProductAlias(Base):
@@ -190,6 +195,25 @@ class ProductAlias(Base):
     image: Mapped[Optional[str]] = mapped_column(String(300))
     # Nutri-Score, NOVA, additifs, labels, rayon et « mieux note » du meme rayon (voir sante.py)
     sante: Mapped[Optional[dict]] = mapped_column(JSON)
+    # "probable" (devine a la lecture), "confirme" (une personne d'accord), "sur" (plusieurs) : voir confiance.py
+    etat: Mapped[str] = mapped_column(String(10), default="probable", server_default="probable")
+
+
+class Contribution(Base):
+    """Avis d'une personne sur un libelle d'enseigne : « c'est ce produit », et ce code-barres quand elle l'a
+    scanne. Ses tickets le suivent tout de suite ; la correspondance commune suit l'avis le mieux soutenu
+    (confiance.py). Jamais montre aux autres, efface avec le compte."""
+
+    __tablename__ = "contributions"
+    __table_args__ = (UniqueConstraint("user_id", "enseigne", "libelle"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    enseigne: Mapped[str] = mapped_column(String(60), index=True)
+    libelle: Mapped[str] = mapped_column(String(120))
+    product_id: Mapped[Optional[int]] = mapped_column(ForeignKey("products.id"))
+    code_barres: Mapped[Optional[str]] = mapped_column(String(32))
+    quand: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
 
 
 class SharedPrice(Base):

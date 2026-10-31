@@ -146,7 +146,7 @@ def test_renommer_un_produit(client, links, monkeypatch, tmp_path):
         r2 = ticket(db, u, 2, "Carrefour", "2026-10-04", [_article("BQ P SAUM AP FQC", "Pavé de saumon", 6.59),
                                                           _article("PAVE SAUMON", "Pavé de saumon", 9.99)])
         item, rid, rid2 = r1.items[0].id, r1.id, r2.id
-    assert "Corriger partout" in client.get(f"/tickets/{rid}").text
+    assert "Corriger" in client.get(f"/tickets/{rid}").text
     r = client.post(f"/tickets/{rid}/produit/{item}", data={"nom": "Pavé de saumon Filière Qualité",
                                                             "retour": "/comparer?q=saumon"}, follow_redirects=False)
     assert r.headers["location"].startswith(f"/tickets/{rid}?retour=/comparer%3Fq%3Dsaumon#p")

@@ -34,22 +34,34 @@
   {% endif %}
 
   {% if r.statut == 'ok' %}
+    {% if merci %}<p class="card" role="status" style="margin:0">{{ _("Merci ! Ça aide tous ceux qui achètent cet article.") }}</p>{% endif %}
+    {% if question %}
+    <div class="card question-produit">
+      <span class="small">{{ _("Une petite vérification, si vous voulez") }}</span>
+      <span>{{ _("« {libelle} », c'est bien :", libelle=question.libelle) }} <strong>{{ question.product.nom }}</strong> ?</span>
+      <div style="display:flex;gap:8px">
+        <form method="post" action="/tickets/{{ r.id }}/confirmer/{{ question.id }}" style="margin:0;flex:1"><input type="hidden" name="retour" value="{{ retour }}"><button class="btn" style="height:40px" type="submit">{{ _("Oui") }}</button></form>
+        <a class="btn ghost" style="height:40px;flex:1" href="/tickets/{{ r.id }}?corriger={{ question.id }}&amp;retour={{ retour|urlencode }}#p{{ question.product_id }}">{{ _("Non, corriger") }}</a>
+      </div>
+    </div>
+    {% endif %}
     <div class="check"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex:none"><path d="M5 12l5 5 9-10"/></svg><span>{{ _("Total vérifié : la somme des {n} articles est égale au total du ticket.", n=r.items|length) }}</span></div>
     <div class="rows">
-      {% for it in r.items %}{% set bio = est_bio(it.product.nom if it.product else '') %}<div class="row{{ ' bio' if bio }}"{% if it.product_id %} id="p{{ it.product_id }}"{% endif %}><span class="grow">{% if r.store %}<details class="renommer"><summary><span class="nom-produit">{{ it.product.nom if it.product else it.libelle }}</span> <span class="small" aria-hidden="true">✎</span></summary>
+      {% for it in r.items %}{% set bio = est_bio(it.product.nom if it.product else '') %}<div class="row{{ ' bio' if bio }}"{% if it.product_id %} id="p{{ it.product_id }}"{% endif %}><span class="grow">{% if r.store %}<details class="renommer"{% if corriger == it.id %} open{% endif %}><summary><span class="nom-produit">{{ it.product.nom if it.product else it.libelle }}</span> <span class="small" aria-hidden="true">✎</span></summary>
           <form method="post" action="/tickets/{{ r.id }}/produit/{{ it.id }}" style="gap:8px;margin:8px 0">
             <label class="small" for="n{{ it.id }}">{{ _("Le bon nom du produit (précisez bio, marque, format si besoin)") }}</label>
             <input id="n{{ it.id }}" name="nom" type="text" value="{{ it.product.nom if it.product else '' }}" maxlength="120" required>
             <input type="hidden" name="retour" value="{{ retour }}">
-            <button class="btn ghost" style="height:40px" type="submit">{{ _("Corriger partout") }}</button>
-            <span class="small">{{ _("Toutes les lignes « {libelle} » de cette enseigne prendront ce nom, et les prochains tickets aussi.", libelle=it.libelle) }}</span>
+            <button class="btn ghost" style="height:40px" type="submit">{{ _("Corriger") }}</button>
+            <span class="small">{{ _("Vos lignes « {libelle} » de cette enseigne prennent ce nom tout de suite, et vos prochains tickets aussi. Pour les autres, c'est un avis : il s'applique dès qu'il est le mieux soutenu.", libelle=it.libelle) }}</span>
           </form>{% if it.product %}
           <form method="post" action="/tickets/{{ r.id }}/rayon/{{ it.id }}" style="gap:8px;margin:0 0 8px">
             <label class="small" for="c{{ it.id }}">{{ _("Rayon") }}</label>
             <select id="c{{ it.id }}" name="categorie" onchange="this.form.submit()">{% for c in rayons %}<option value="{{ c }}"{% if c == it.product.categorie %} selected{% endif %}>{{ _(c) }}</option>{% endfor %}</select>
             <input type="hidden" name="retour" value="{{ retour }}">
             <noscript><button class="btn ghost" style="height:40px" type="submit">{{ _("Changer le rayon") }}</button></noscript>
-          </form>{% endif %}
+          </form>{% if it.product.type_nom %}
+          <span class="small" style="display:block;margin:0 0 8px">{{ _("Produit type : {type}, comparé entre enseignes", type=it.product.type_nom) }}</span>{% endif %}{% endif %}
           <a class="small" href="/tickets/{{ r.id }}/code/{{ it.id }}" style="display:block;margin:0 0 8px">▥ <u>{{ _("Scanner le code-barres (article exact)") if it.id not in exacts else _("Changer le code-barres") }}</u></a></details>{% else %}{{ it.product.nom if it.product else it.libelle }}{% endif %}<span class="small">{{ it.libelle }}{% if it.prix_kg %} · {{ it.prix_kg|euros }}/kg{% endif %}{% if it.product and it.product.categorie %} · {{ _(it.product.categorie) }}{% endif %}</span>{% set x = exacts.get(it.id) %}{% if x %}
           <span class="small exact-ligne">▥ {{ [x.alias.nom_exact, x.alias.marque.split(',')[0] if x.alias.marque, x.alias.format]|select|join(' · ') or x.alias.code_barres }}{% if x.unite %} · {{ x.unite[0]|euros }}/{{ x.unite[1] }}{% endif %}</span>{% if x.sante.nutriscore or x.sante.nova or x.sante.labels %}
           <span class="small sante-ligne">{{ sante.faits(x.sante) }}</span>{% endif %}{% for m in x.mieux %}

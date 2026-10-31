@@ -21,8 +21,8 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
 
-from . import (adresses, apprentissage, assistant, auth, codebarres, config, i18n, liste, openprices, panier,
-               sante, stats, suivi, tickets)
+from . import (adresses, apprentissage, assistant, auth, codebarres, confiance, config, i18n, liste, openprices,
+               panier, rayons, sante, stats, suivi, tickets)
 from .db import SessionLocal, get_db, init_db
 from .lecture import CATEGORIES
 from .models import Avis, LectureTicket, OpenPrice, Question, Product, ProductAlias, Receipt, ReceiptItem, ShoppingItem, Store, User, now
@@ -62,6 +62,7 @@ async def lifespan(_app):
     with SessionLocal() as db:
         suivi.purger(db)
         apprentissage.purger(db)
+    rayons.completer_en_fond()
     if config.INSCRIPTION_LIBRE:
         threading.Thread(target=_accepter_la_liste_d_attente, name="liste-attente", daemon=True).start()
     yield
@@ -454,7 +455,7 @@ def profil(request: Request, user: User = Depends(require_user), db: Session = D
     zone = _zone(request, db, user)
     return page(request, "profil.html", user=user, utilises=tickets.tickets_ce_mois(db, user),
                 maximum=config.MAX_TICKETS_PAR_MOIS, nb_tickets=len(user.receipts), zone=zone,
-                magasins=assistant.magasins_a_cote(zone))
+                magasins=assistant.magasins_a_cote(zone), aides=confiance.aides(db, user))
 
 
 @app.post("/profil/partage")
@@ -562,8 +563,8 @@ def ticket_envoi(request: Request, fichier: list[UploadFile] = File(...), import
 
 
 @app.get("/tickets/{receipt_id}", response_class=HTMLResponse)
-def ticket_detail(request: Request, receipt_id: int, doublon: int = 0, retour: str = "/accueil",
-                  user: User = Depends(require_user), db: Session = Depends(get_db)):
+def ticket_detail(request: Request, receipt_id: int, doublon: int = 0, retour: str = "/accueil", corriger: int = 0,
+                  merci: int = 0, user: User = Depends(require_user), db: Session = Depends(get_db)):
     r = _ticket_de(db, user, receipt_id)
     retour = retour if retour.startswith("/") and not retour.startswith("//") else "/accueil"  # page du site seulement
     ecart = (r.total - (r.somme_articles - r.remises_globales)) if r.total is not None else None
@@ -571,7 +572,8 @@ def ticket_detail(request: Request, receipt_id: int, doublon: int = 0, retour: s
                         if e != "Inconnue"} | set(COULEURS))
     exacts = _exacts(request, db, user, r)
     return page(request, "ticket.html", r=r, doublon=bool(doublon), ecart=ecart, enseignes=enseignes, retour=retour,
-                bilan=stats.bilan_ticket(db, user, r), exacts=exacts,
+                bilan=stats.bilan_ticket(db, user, r), exacts=exacts, corriger=corriger, merci=bool(merci),
+                question=None if r.statut != "ok" else confiance.a_confirmer(db, user, r),
                 bilan_sante=sante.bilan([(it.montant, (exacts[it.id]["alias"].sante or {}).get("nutriscore"))
                                          for it in r.items if it.id in exacts]))
 
@@ -608,14 +610,15 @@ def _ligne_du_ticket(db: Session, user: User, receipt_id: int, item_id: int) -> 
 
 
 @app.get("/tickets/{receipt_id}/code/{item_id}", response_class=HTMLResponse)
-def ticket_code(request: Request, receipt_id: int, item_id: int, erreur: str = "",
+def ticket_code(request: Request, receipt_id: int, item_id: int, erreur: str = "", autre: int = 0,
                 user: User = Depends(require_user), db: Session = Depends(get_db)):
     """Scanner le code-barres d'une ligne (ou le taper, ou toucher le bon produit parmi quelques propositions)."""
     item = _ligne_du_ticket(db, user, receipt_id, item_id)
     alias = codebarres.alias_de(db, item)
     deja = alias if alias and alias.code_barres else None
     nom = item.product.nom if item.product else item.libelle
-    propositions = [] if deja else codebarres.propositions(nom, item.receipt.store.enseigne)
+    propositions = [] if deja else codebarres.propositions(nom, item.receipt.store.enseigne,
+                                                           type_off=item.product.type_off if item.product else None)
     mieux = []
     if deja:
         if sante.a_rafraichir(deja):
@@ -624,7 +627,7 @@ def ticket_code(request: Request, receipt_id: int, item_id: int, erreur: str = "
         mieux = sante.avec_prix(db, user, (deja.sante or {}).get("mieux", []), _zone(request, db, user), deja.format,
                                 unite)
     return page(request, "code_barres.html", item=item, deja=deja, propositions=propositions, erreur=erreur,
-                mieux=mieux)
+                mieux=mieux, autre=bool(autre))
 
 
 @app.post("/tickets/{receipt_id}/code/{item_id}")
@@ -634,10 +637,12 @@ def ticket_code_enregistrer(receipt_id: int, item_id: int, code: str = Form(""),
     code = codebarres.nettoyer(code)
     if not codebarres.valide(code):
         return RedirectResponse(f"/tickets/{receipt_id}/code/{item_id}?erreur=1", status_code=303)
-    alias = codebarres.enregistrer(db, item, codebarres.fiche(code))
+    alias = codebarres.enregistrer(db, item, codebarres.fiche(code), user)
+    suivi.noter(user.id, "code_barres", "/tickets/{receipt_id}/code/{item_id}", f"{item.libelle} → {code}")
+    if alias is not None and alias.code_barres != code:  # un autre code reste retenu : ce scan compte comme un avis
+        return RedirectResponse(f"/tickets/{receipt_id}/code/{item_id}?autre=1", status_code=303)
     if alias is not None:
         sante.completer(db, alias)
-    suivi.noter(user.id, "code_barres", "/tickets/{receipt_id}/code/{item_id}", f"{item.libelle} → {code}")
     return RedirectResponse(f"/tickets/{receipt_id}#p{item.product_id}", status_code=303)
 
 
@@ -670,11 +675,26 @@ def ticket_produit(receipt_id: int, item_id: int, nom: str = Form(""), retour: s
     item = next((it for it in r.items if it.id == item_id), None)
     if item is None:
         raise HTTPException(status_code=404)
-    produit = tickets.renommer_produit(db, item, nom)
+    produit = tickets.renommer_produit(db, item, nom, user)
     apprentissage.figer(db, r)
     suivi.noter(user.id, "produit_renomme", "/tickets/{receipt_id}", f"{item.libelle} → {nom[:80]}")
     suite = f"?retour={quote(retour)}" if retour.startswith("/") and not retour.startswith("//") else ""
     return RedirectResponse(f"/tickets/{r.id}{suite}#p{produit.id if produit else ''}", status_code=303)
+
+
+@app.post("/tickets/{receipt_id}/confirmer/{item_id}")
+def ticket_confirmer(receipt_id: int, item_id: int, retour: str = Form(""), user: User = Depends(require_user),
+                     db: Session = Depends(get_db)):
+    """« Oui, c'est bien ce produit » : un avis qui rend la correspondance plus sure pour tout le monde."""
+    r = _ticket_de(db, user, receipt_id)
+    item = next((it for it in r.items if it.id == item_id), None)
+    if item is None or item.product is None:
+        raise HTTPException(status_code=404)
+    confiance.donner_avis(db, user, item, produit=item.product)
+    db.commit()
+    suivi.noter(user.id, "produit_confirme", "/tickets/{receipt_id}", item.libelle)
+    suite = f"&retour={quote(retour)}" if retour.startswith("/") and not retour.startswith("//") else ""
+    return RedirectResponse(f"/tickets/{r.id}?merci=1{suite}#p{item.product_id}", status_code=303)
 
 
 @app.post("/tickets/{receipt_id}/bio/{item_id}")
@@ -687,7 +707,7 @@ def ticket_bio(receipt_id: int, item_id: int, retour: str = Form(""), user: User
         raise HTTPException(status_code=404)
     nom = item.product.nom if item.product else item.libelle.capitalize()
     nom = tickets.sans_bio(nom) if tickets.nom_bio(nom) else tickets.avec_bio(nom)
-    produit = tickets.renommer_produit(db, item, nom)
+    produit = tickets.renommer_produit(db, item, nom, user)
     apprentissage.figer(db, r)
     suivi.noter(user.id, "produit_renomme", "/tickets/{receipt_id}", f"{item.libelle} → {nom[:80]}")
     suite = f"?retour={quote(retour)}" if retour.startswith("/") and not retour.startswith("//") else ""

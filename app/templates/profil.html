@@ -11,6 +11,12 @@
     <div style="display:flex;justify-content:space-between;font-size:14px"><strong>{{ _("Tickets lus ce mois") }}</strong><span class="mono">{{ utilises }} / {{ maximum }}</span></div>
     <div style="height:6px;border-radius:3px;background:var(--line);overflow:hidden"><div style="width:{{ (utilises * 100 // maximum) if maximum else 0 }}%;height:100%;background:var(--fg)"></div></div>
   </div>
+  {% if aides.avis %}
+  <div class="card aides">
+    <strong>{% if aides.personnes %}{{ _("Vos corrections ont servi à {n} personnes", n=aides.personnes) if aides.personnes > 1 else _("Vos corrections ont servi à une autre personne") }}{% else %}{{ _("Merci pour vos {n} corrections", n=aides.avis) if aides.avis > 1 else _("Merci pour votre correction") }}{% endif %}</strong>
+    <span class="small">{{ _("Les noms de produits que vous corrigez, confirmez ou scannez aident tous ceux qui achètent les mêmes articles. Votre nom n'est jamais montré.") }}</span>
+  </div>
+  {% endif %}
 
   <section id="quartier" style="display:flex;flex-direction:column;gap:10px">
     <span class="eyebrow">{{ _("Mon quartier") }}</span>

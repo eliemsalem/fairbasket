@@ -154,3 +154,5 @@ textarea{height:auto;min-height:64px;padding:12px 14px;resize:vertical}
 .sante-bilan{display:flex;flex-direction:column;gap:6px}
 .sante-barre{display:flex;height:10px;border-radius:5px;overflow:hidden;gap:2px}
 .vignette{border-radius:8px;object-fit:contain;background:#fff;flex:none}
+.question-produit,.aides{display:flex;flex-direction:column;gap:8px;margin:0}
+.question-produit .btn{width:100%}

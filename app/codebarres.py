@@ -21,7 +21,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from . import config, openprices
-from .models import OpenPrice, ProductAlias, ReceiptItem
+from .models import OpenPrice, ProductAlias, ReceiptItem, User
 
 log = logging.getLogger("fairbasket.codebarres")
 FICHE = "https://world.openfoodfacts.org/api/v2/product/{code}.json"
@@ -71,14 +71,18 @@ def fiche(code: str, get: Optional[Callable] = None) -> dict:
     return {"code": code, "nom": None, "marque": None, "format": None, "image": None}
 
 
-def propositions(nom: str, enseigne: str, get: Optional[Callable] = None, limite: int = 3) -> list:
+def propositions(nom: str, enseigne: str, get: Optional[Callable] = None, limite: int = 3,
+                 type_off: Optional[str] = None) -> list:
     """Quelques produits qui ressemblent a la ligne du ticket, avec photo : la personne touche le bon.
-    D'abord la marque de l'enseigne (Monoprix, Carrefour…), sinon toutes marques."""
+    D'abord dans son produit type (rayon) et la marque de l'enseigne (Monoprix, Carrefour…), puis la marque de
+    l'enseigne seule, sinon toutes marques."""
     get = get or (_get if config.OPEN_FOOD_FACTS_AUTO else None)
     nom = " ".join(nom.split())
     if len(nom) < 3 or get is None:
         return []
-    for q in ([f'{nom} brands:"{enseigne.lower()}"'] if enseigne and enseigne != "Inconnue" else []) + [nom]:
+    marque = f' brands:"{enseigne.lower()}"' if enseigne and enseigne != "Inconnue" else ""
+    essais = ([f'{nom} categories_tags:"{type_off}"{marque}'] if type_off else []) + ([nom + marque] if marque else [])
+    for q in essais + [nom]:
         try:
             d = get(RECHERCHE, {"q": q, "langs": "fr", "page_size": limite, "fields": CHAMPS})
         except Exception as e:
@@ -97,22 +101,22 @@ def alias_de(db: Session, item: ReceiptItem) -> Optional[ProductAlias]:
                                                 ProductAlias.libelle == item.libelle))
 
 
-def enregistrer(db: Session, item: ReceiptItem, f: dict) -> Optional[ProductAlias]:
-    """Retient le code pour ce libelle dans cette enseigne : les prochains tickets le connaissent deja."""
+def enregistrer(db: Session, item: ReceiptItem, f: dict, user: Optional[User] = None) -> Optional[ProductAlias]:
+    """Le scan compte comme un avis fort sur ce libelle dans cette enseigne (confiance.py) : retenu pour tous
+    quand il est le mieux soutenu, et alors les prochains tickets le connaissent deja."""
+    from .confiance import donner_avis
+
     if item.receipt.store is None:
         return None
+    user = user or db.get(User, item.receipt.user_id)
     if item.product is None:  # ligne jamais nommee : le nom de la fiche (ou du ticket) devient le produit
         from .tickets import renommer_produit
-        renommer_produit(db, item, f.get("nom") or item.libelle.capitalize())
+        renommer_produit(db, item, f.get("nom") or item.libelle.capitalize(), user)
         db.refresh(item)
-    alias = alias_de(db, item)
-    if alias is None:
-        alias = ProductAlias(enseigne=item.receipt.store.enseigne, libelle=item.libelle, product=item.product)
-        db.add(alias)
-    if alias.code_barres != f["code"]:
-        alias.sante = None  # autre article : sa sante est a reprendre
-    alias.code_barres, alias.nom_exact, alias.marque = f["code"], f.get("nom"), f.get("marque")
-    alias.format, alias.image = f.get("format"), f.get("image")
+    alias = donner_avis(db, user, item, code=f["code"])
+    if alias is not None and alias.code_barres == f["code"]:
+        alias.nom_exact, alias.marque = f.get("nom") or alias.nom_exact, f.get("marque") or alias.marque
+        alias.format, alias.image = f.get("format") or alias.format, f.get("image") or alias.image
     db.commit()
     return alias
 

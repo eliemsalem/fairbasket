@@ -18,6 +18,7 @@ from .enseignes import est_bio, reconnaitre
 from .lecture import Lecture, LectureImpossible, image_compressee, lire_ticket, photos_assemblees
 from .lecture_code import lire_pdf
 from .models import Product, ProductAlias, Receipt, ReceiptItem, SharedPrice, Store, User, now
+from .rayons import classer
 
 TOLERANCE = Decimal("0.02")
 TYPES_ACCEPTES = {"application/pdf": "pdf", "image/jpeg": "photo", "image/png": "photo", "image/webp": "photo",
@@ -112,8 +113,14 @@ def sans_bio(nom: str) -> str:
 
 
 def _produit(db: Session, enseigne: str, libelle: str, nom: str, categorie: Optional[str],
-             famille: Optional[str] = None) -> Optional[Product]:
-    """Retrouve le produit : d'abord par un libelle deja vu dans cette enseigne, sinon par son nom lisible."""
+             famille: Optional[str] = None, user_id: Optional[int] = None) -> Optional[Product]:
+    """Retrouve le produit : d'abord le choix de la personne pour ce libelle, puis la correspondance commune de
+    l'enseigne, sinon par son nom lisible."""
+    if enseigne and user_id:
+        from .confiance import produit_de
+        produit = produit_de(db, user_id, enseigne, libelle)
+        if produit is not None:
+            return produit
     if enseigne:
         alias = db.scalar(select(ProductAlias).where(ProductAlias.enseigne == enseigne, ProductAlias.libelle == libelle))
         if alias:
@@ -126,6 +133,7 @@ def _produit(db: Session, enseigne: str, libelle: str, nom: str, categorie: Opti
     produit = db.scalar(select(Product).where(Product.cle == cle_produit(nom)))
     if produit is None:
         produit = Product(nom=nom[0].upper() + nom[1:], cle=cle_produit(nom), categorie=categorie)
+        classer(produit)
         db.add(produit)
     if famille and not produit.famille:
         produit.famille = famille.strip().lower()[:60]
@@ -216,7 +224,7 @@ def _enregistrer(db: Session, user: User, data: bytes, fichier_nom: str, media_t
         ReceiptItem(position=i, libelle=(a["libelle"] or "?")[:120], quantite=Decimal(str(a["quantite"] or 1)),
                     product=None if a.get("illisible") else _produit(db, enseigne, (a["libelle"] or "?")[:120],
                                                                       a.get("nom"), a.get("categorie"),
-                                                                      a.get("famille")),
+                                                                      a.get("famille"), user.id),
                     prix_unitaire=_dec(a["prix_unitaire"]), montant=_dec(a["montant"]), remise=_dec(a["remise"]),
                     poids_kg=None if a["poids_kg"] is None else Decimal(str(a["poids_kg"])),
                     prix_kg=_dec(a["prix_kg"]), illisible=bool(a["illisible"]))
@@ -347,9 +355,11 @@ def corriger_ticket(db: Session, user: User, receipt: Receipt, lignes: dict, nou
     db.commit()
 
 
-def renommer_produit(db: Session, item: ReceiptItem, nom: str) -> Optional[Product]:
-    """« Ce n'est pas le meme produit » : la ligne (et toutes celles qui portent le meme libelle dans cette
-    enseigne, tickets et prix partages) passe sous ce nom ; l'app le retient pour les prochains tickets."""
+def renommer_produit(db: Session, item: ReceiptItem, nom: str, user: Optional[User] = None) -> Optional[Product]:
+    """« Ce n'est pas le meme produit » : les lignes de la personne qui portent ce libelle dans cette enseigne
+    passent sous ce nom tout de suite, et son avis compte pour tous les autres (voir confiance.py)."""
+    from .confiance import donner_avis
+
     nom = " ".join((nom or "").split())[:120]
     if not nom or item.receipt.store is None:
         return None
@@ -358,19 +368,10 @@ def renommer_produit(db: Session, item: ReceiptItem, nom: str) -> Optional[Produ
     if produit is None:
         produit = Product(nom=nom[0].upper() + nom[1:], cle=cle_produit(nom),
                           categorie=ancien.categorie if ancien else None, famille=ancien.famille if ancien else None)
+        classer(produit)
         db.add(produit)
         db.flush()
-    enseigne = item.receipt.store.enseigne
-    alias = db.scalar(select(ProductAlias).where(ProductAlias.enseigne == enseigne, ProductAlias.libelle == item.libelle))
-    if alias is None:
-        db.add(ProductAlias(enseigne=enseigne, libelle=item.libelle, product=produit))
-    else:
-        alias.product = produit
-    magasins = select(Store.id).where(Store.enseigne == enseigne)
-    db.execute(update(ReceiptItem).where(ReceiptItem.libelle == item.libelle, ReceiptItem.receipt_id.in_(
-        select(Receipt.id).where(Receipt.store_id.in_(magasins)))).values(product_id=produit.id))
-    db.execute(update(SharedPrice).where(SharedPrice.libelle == item.libelle, SharedPrice.store_id.in_(magasins))
-               .values(product_id=produit.id))
+    donner_avis(db, user or db.get(User, item.receipt.user_id), item, produit=produit)
     db.commit()
     return produit
 
@@ -401,6 +402,7 @@ def corriger_bio(db: Session) -> int:
         if cible is None:
             cible = Product(nom=nom_bio, cle=cle_produit(nom_bio), categorie=it.product.categorie,
                             famille=it.product.famille)
+            classer(cible)
             db.add(cible)
             db.flush()
         enseigne = it.receipt.store.enseigne
