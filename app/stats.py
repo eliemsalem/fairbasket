@@ -113,7 +113,7 @@ def tableau_de_bord(db: Session, user: User, periode: str = "an", aujourd_hui: O
     derniers = defaultdict(dict)  # produit -> enseigne -> (date, prix)
     noms = {}
     for r in sorted(tickets, key=lambda r: r.achete_le):
-        if not r.store:
+        if not r.store or r.canal == "livraison":
             continue
         for it in r.items:
             prix = _prix_unitaire(it)
@@ -144,6 +144,7 @@ def _derniers_prix(tickets, ticket_de: Optional[dict] = None, unites: Optional[d
     Si `detail` est fourni, il recoit (cle, enseigne) -> (produit, nom) du dernier achat, et cle -> {ids, noms}
     des produits du groupe."""
     derniers, noms, achats = defaultdict(dict), {}, defaultdict(int)
+    tickets = [r for r in tickets if r.canal != "livraison"]  # prix majores par la plateforme : pas ceux du magasin
     groupes = {}  # (produit type ou nom sans format, unite) -> premier produit vu, qui represente le groupe
     membres = defaultdict(dict)  # cle -> nom sans format (au singulier) -> nom affiche
     for r in sorted(tickets, key=lambda r: r.achete_le):
@@ -348,7 +349,7 @@ def bilan_ticket(db: Session, user: User, receipt: Receipt) -> dict:
     # produit type pour « moins cher ailleurs » (un autre beurre demi-sel 250 g compte)
     historique, par_type = defaultdict(list), defaultdict(list)
     for r in sorted(tickets, key=lambda r: r.achete_le):
-        if not r.store or r.store.enseigne in ("Inconnue", "Marché", "Commerce"):
+        if not r.store or r.store.enseigne in ("Inconnue", "Marché", "Commerce") or r.canal == "livraison":
             continue
         for it in r.items:
             if not it.product_id:
@@ -385,7 +386,7 @@ def bilan_ticket(db: Session, user: User, receipt: Receipt) -> dict:
         # le moins cher vu dans une autre enseigne (dernier prix de chaque enseigne)
         derniers = {}
         for d, ens, p, nom in semblables:
-            if ens != enseigne:
+            if ens != enseigne or receipt.canal == "livraison":  # livre : meme le magasin de l'enseigne compte
                 derniers[ens] = (p, nom)
         if derniers:
             ens, (p, nom) = min(derniers.items(), key=lambda kv: kv[1][0])
@@ -400,7 +401,7 @@ def bilan_ticket(db: Session, user: User, receipt: Receipt) -> dict:
     ailleurs = sorted((l for l in lignes if l.get("ailleurs_gain")), key=lambda l: -l["ailleurs_gain"])
     total_ecart = sum((l["ecart"] for l in moins + plus), Decimal("0"))
     return {
-        "compares": compares, "total_ecart": total_ecart,
+        "livraison": receipt.canal == "livraison", "compares": compares, "total_ecart": total_ecart,
         "moins": sorted(moins, key=lambda l: l["ecart"]), "plus": sorted(plus, key=lambda l: -l["ecart"]),
         "gain_moins": -sum((l["ecart"] for l in moins), Decimal("0")),
         "perte_plus": sum((l["ecart"] for l in plus), Decimal("0")),

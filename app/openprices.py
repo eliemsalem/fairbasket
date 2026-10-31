@@ -133,7 +133,8 @@ def zone_de(db: Session, user: User, position: Optional[tuple] = None) -> dict:
         return {"lat": user.quartier_lat, "lon": user.quartier_lon, "source": "quartier",
                 "ville": " ".join((user.quartier or "").split()[1:]) or user.quartier}
     lieux = db.execute(select(Store.lat, Store.lon, Store.ville).join(Receipt, Receipt.store_id == Store.id)
-                       .where(Receipt.user_id == user.id, Store.lat.is_not(None))).all()
+                       .where(Receipt.user_id == user.id, Store.lat.is_not(None),
+                              Receipt.canal != "livraison")).all()
     if lieux:
         # la mediane : un ticket pris en vacances ne deplace pas la zone
         villes = [v for _, _, v in lieux if v]

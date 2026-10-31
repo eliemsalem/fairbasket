@@ -32,6 +32,9 @@ SCHEMA = {
         "heure": TEXTE_OU_NUL,
         "total": NOMBRE_OU_NUL,
         "remises_globales": NOMBRE,
+        "frais": NOMBRE,
+        "canal": {"type": "string", "enum": ["magasin", "livraison", "drive"]},
+        "plateforme": TEXTE_OU_NUL,
         "nombre_articles_imprime": {"type": ["integer", "null"]},
         "articles": {
             "type": "array",
@@ -57,7 +60,8 @@ SCHEMA = {
         "remarques": TEXTE_OU_NUL,
     },
     "required": ["lisible", "enseigne", "magasin", "adresse", "code_postal", "ville", "date", "heure", "total",
-                 "remises_globales", "nombre_articles_imprime", "articles", "remarques"],
+                 "remises_globales", "frais", "canal", "plateforme", "nombre_articles_imprime", "articles",
+                 "remarques"],
     "additionalProperties": False,
 }
 
@@ -73,10 +77,12 @@ Règles :
 - nom : le nom lisible et générique du produit en français, pour reconnaître le même produit d'un magasin à l'autre. Développe les abréviations, enlève la marque du magasin et les codes, garde ce qui change le prix (bio, format, nombre d'unités). Exemples : « PAVE SAUM MONOPRIX » → « Pavé de saumon » ; « 6 OEUFS BIO CALIBR » → « Œufs bio ×6 » ; « 100G CHOC NR 85% » → « Chocolat noir 85 % 100 g » ; « KEFIR 1L CC » → « Kéfir 1 L ». Si le libellé est illisible, mets ce que tu peux deviner ou « Article illisible ».
 - categorie : le rayon le plus proche dans la liste imposée.
 - famille : le type de produit en un ou deux mots génériques, en minuscules, comme on le chercherait dans un magasin. Exemples : « Pavé de saumon » → « poisson » ; « Morbier AOP » → « fromage » ; « Œufs bio ×6 » → « œufs » ; « Red Bull 25 cl ×4 » → « boisson énergisante » ; « Lentilles vertes » → « légumineuses » ; « Liquide vaisselle » → « produit vaisselle ».
-- remises_globales : le total des remises qui ne sont rattachées à aucun article (nombre positif, 0 s'il n'y en a pas). Ne compte pas deux fois une remise déjà déduite d'un article.
+- remises_globales : le total des remises qui ne sont rattachées à aucun article (nombre positif, 0 s'il n'y en a pas) : bons, avantages d'abonnement, crédits, réduction sur la livraison. Ne compte pas deux fois une remise déjà déduite d'un article.
+- frais : le total de ce qui est payé en plus des articles (frais de livraison, de service, livraison prioritaire, préparation, sac, petite commande, pourboire), nombre positif, 0 s'il n'y en a pas. Ce ne sont jamais des articles. Le total payé est égal aux articles + frais − remises_globales.
+- canal : « livraison » pour une commande livrée (Uber Eats, Deliveroo, Getir, Flink, livraison à domicile d'une enseigne…), « drive » pour une commande retirée en magasin ou en point de retrait, sinon « magasin ». plateforme : l'application ou le service de la commande (« Uber Eats », « Deliveroo »), sinon null. Pour une livraison, enseigne et magasin sont ceux du commerce qui a préparé la commande (« La Belle Vie », « Monoprix »), l'adresse est celle de ce commerce si elle est imprimée, jamais celle du client.
 - N'ajoute pas comme articles les lignes de TVA, de paiement, de rendu monnaie, de fidélité ou de total.
 - Une ligne partiellement cachée (tache, pli) : recopie ce qui est lisible, mets illisible à true et donne le montant s'il est lisible.
-- Ne recopie jamais un numéro de carte bancaire ou de carte de fidélité, ni le nom du client.
+- Ne recopie jamais un numéro de carte bancaire ou de carte de fidélité, ni le nom, l'e-mail ou l'adresse du client.
 - lisible : false si l'image n'est pas un ticket de caisse ou si elle est trop floue pour être lue ; les autres champs sont alors vides ou nuls.
 - remarques : une phrase courte seulement en cas de doute réel, sinon null."""
 

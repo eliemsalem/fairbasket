@@ -429,4 +429,11 @@ EN = {
     "Articles semblables, même produit type : chaque ligne dit lequel.":
         "Similar items, same product type: each line says which one.",
     "{produit} : {prix} chez {enseigne} ({autre})": "{produit}: {prix} at {enseigne} ({autre})",
+    "Frais (livraison, service…)": "Fees (delivery, service…)",
+    "Commande livrée{via} : ses prix ne comptent pas comme des prix en magasin dans vos comparaisons.":
+        "Delivered order{via}: its prices don't count as in-store prices in your comparisons.",
+    "Frais : {frais}.": "Fees: {frais}.",
+    "Commande drive.": "Click-and-collect order.",
+    "En magasin, vous auriez payé {montant} de moins, sans les frais":
+        "In store, you would have paid {montant} less, without the fees",
 }

@@ -75,7 +75,7 @@ def _a_l_unite(tickets: list) -> tuple[dict, dict]:
     quantite achetee d'habitude (2 pieces, 0,5 kg…), pour remettre un prix a l'unite a l'echelle de l'article."""
     prix, achat = defaultdict(dict), {}
     for r in sorted(tickets, key=lambda r: r.achete_le):
-        if not r.store or r.store.enseigne in ("Inconnue", "Marché", "Commerce"):
+        if not r.store or r.store.enseigne in ("Inconnue", "Marché", "Commerce") or r.canal == "livraison":
             continue
         for it in r.items:
             if not it.product_id:

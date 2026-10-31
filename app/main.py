@@ -567,7 +567,7 @@ def ticket_detail(request: Request, receipt_id: int, doublon: int = 0, retour: s
                   merci: int = 0, user: User = Depends(require_user), db: Session = Depends(get_db)):
     r = _ticket_de(db, user, receipt_id)
     retour = retour if retour.startswith("/") and not retour.startswith("//") else "/accueil"  # page du site seulement
-    ecart = (r.total - (r.somme_articles - r.remises_globales)) if r.total is not None else None
+    ecart = (r.total - (r.somme_articles + r.frais - r.remises_globales)) if r.total is not None else None
     enseignes = sorted({e for e in db.scalars(select(Store.enseigne).join(Receipt).where(Receipt.user_id == user.id))
                         if e != "Inconnue"} | set(COULEURS))
     exacts = _exacts(request, db, user, r)

@@ -94,7 +94,7 @@ def noter_lecture(user_id: int, sha: str, data: bytes, suite: Sequence[bytes], m
             articles = (lu or {}).get("articles") or []
             ecart = None
             if receipt is not None and receipt.total is not None and receipt.somme_articles is not None:
-                ecart = float(receipt.total - (receipt.somme_articles - receipt.remises_globales))
+                ecart = float(receipt.total - (receipt.somme_articles + receipt.frais - receipt.remises_globales))
             db.add(LectureTicket(
                 user_id=user_id, receipt_id=receipt_id, source="pdf" if media_type == "application/pdf" else "photo",
                 media_type=media_type[:40], nb_fichiers=1 + len(suite), taille_octets=len(data) + sum(map(len, suite)),

@@ -10,6 +10,7 @@
     <span style="font-size:14px;font-weight:600">{{ _(r.store.enseigne) if r.store else _('Magasin inconnu') }}{% if r.store and r.store.nom|lower != r.store.enseigne|lower %} · {{ r.store.nom|title }}{% endif %} · {{ r.achete_le.strftime('%d/%m/%Y · %H:%M') if r.achete_le else _('date inconnue') }}</span>
   </div>
   <h1 class="mono" style="font-size:40px;line-height:1">{{ r.total|euros }}</h1>
+  {% if r.canal == 'livraison' %}<p class="small" style="margin:0">{{ _("Commande livrée{via} : ses prix ne comptent pas comme des prix en magasin dans vos comparaisons.", via=(' · ' ~ r.plateforme) if r.plateforme else '') }}{% if r.frais %} {{ _("Frais : {frais}.", frais=r.frais|euros) }}{% endif %}</p>{% elif r.canal == 'drive' %}<p class="small" style="margin:0">{{ _("Commande drive.") }}</p>{% endif %}
   {% include "_bilan_ticket.html" %}
   {% if bilan_sante %}
   <div class="sante-bilan">
@@ -67,12 +68,13 @@
           <span class="small sante-ligne">{{ sante.faits(x.sante) }}</span>{% endif %}{% for m in x.mieux %}
           <a class="small mieux-ligne" href="/tickets/{{ r.id }}/code/{{ it.id }}#mieux">{{ _("Mieux noté :") }} {{ sante.nutri(m.nutriscore) }} {{ m.nom }}{% if m.marque %} ({{ m.marque.split(',')[0] }}){% endif %}{{ sante.prix_mieux(m) }}</a>{% endfor %}{% for a in x.ailleurs[:1] %}
           <span class="small exact-ailleurs">{{ _("Le même : {prix} chez {magasin}", prix=a.p.prix|euros, magasin=a.p.magasin|title) }}{% if a.distance is not none %} · {{ a.distance }} km{% endif %} · {{ a.p.jour.strftime('%d/%m') }}</span>{% endfor %}{% endif %}</span>{% if r.store %}<form method="post" action="/tickets/{{ r.id }}/bio/{{ it.id }}" style="margin:0"><input type="hidden" name="retour" value="{{ retour }}"><button class="pastille-bio" type="submit" aria-pressed="{{ 'true' if bio else 'false' }}" aria-label="{{ _('Bio') }} : {{ it.product.nom if it.product else it.libelle }}">{{ _("Bio") }}</button></form>{% endif %}<span class="mono">{{ it.montant|euros }}</span></div>{% endfor %}
+      {% if r.frais %}<div class="row"><span class="grow">{{ _("Frais (livraison, service…)") }}</span><span class="mono">{{ r.frais|euros }}</span></div>{% endif %}
       {% if r.remises_globales %}<div class="row"><span class="grow">{{ _("Remises") }}</span><span class="mono">−{{ r.remises_globales|euros }}</span></div>{% endif %}
     </div>
   {% else %}
     <div class="card" style="border:2px solid var(--fg);display:flex;flex-direction:column;gap:6px;font-size:14px">
       <div style="display:flex;justify-content:space-between"><span>{{ _("Total du ticket") }}</span><strong class="mono">{{ r.total|euros }}</strong></div>
-      <div style="display:flex;justify-content:space-between"><span>{{ _("Somme des articles lus") }}</span><strong class="mono">{{ (r.somme_articles - r.remises_globales)|euros }}</strong></div>
+      <div style="display:flex;justify-content:space-between"><span>{{ _("Somme des articles lus") }}</span><strong class="mono">{{ (r.somme_articles + r.frais - r.remises_globales)|euros }}</strong></div>
       {% if ecart is not none %}<div style="display:flex;justify-content:space-between;color:var(--danger);font-weight:700"><span>{{ _("Écart") }}</span><span class="mono">{{ ecart|euros }}</span></div>{% endif %}
       <p class="small" style="margin:4px 0 0">{{ _("Corrigez un montant ou ajoutez la ligne manquante pour que vos statistiques restent justes.") }}</p>
     </div>

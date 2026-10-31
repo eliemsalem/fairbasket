@@ -29,7 +29,7 @@
   {% endif %}
     {% if b.ailleurs %}
     <div class="bon-a-savoir">
-      <strong>{{ _("Ailleurs, vous auriez payé {montant} de moins", montant=b.ailleurs_total|euros) }}</strong>
+      <strong>{% if b.livraison %}{{ _("En magasin, vous auriez payé {montant} de moins, sans les frais", montant=b.ailleurs_total|euros) }}{% else %}{{ _("Ailleurs, vous auriez payé {montant} de moins", montant=b.ailleurs_total|euros) }}{% endif %}</strong>
       <ul style="margin:6px 0 0;padding-left:18px">{% for l in b.ailleurs %}<li>{% if l.ailleurs_produit %}{{ _("{produit} : {prix} chez {enseigne} ({autre})", produit=l.produit, prix=(l.ailleurs_prix|round(2)|euros) ~ ((' / ' ~ _(l.affiche_unite)) if l.affiche_unite else ''), enseigne=_(l.ailleurs_enseigne), autre=l.ailleurs_produit) }}{% else %}{{ _("{produit} : {prix} chez {enseigne}", produit=l.produit, prix=(l.ailleurs_prix|round(2)|euros) ~ ((' / ' ~ _(l.affiche_unite)) if l.affiche_unite else ''), enseigne=_(l.ailleurs_enseigne)) }}{% endif %}</li>{% endfor %}</ul>
     </div>
     {% endif %}

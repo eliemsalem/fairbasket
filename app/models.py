@@ -110,6 +110,11 @@ class Receipt(Base):
     total: Mapped[Optional[Decimal]] = mapped_column(Numeric(10, 2))
     somme_articles: Mapped[Optional[Decimal]] = mapped_column(Numeric(10, 2))
     remises_globales: Mapped[Decimal] = mapped_column(Numeric(10, 2), default=0)
+    # frais qui ne sont pas des articles (livraison, service, sac, pourboire) : articles + frais - remises = total
+    frais: Mapped[Decimal] = mapped_column(Numeric(10, 2), default=0, server_default="0")
+    # "magasin", "livraison" (Uber Eats, Deliveroo… : ses prix ne sont pas ceux du magasin) ou "drive"
+    canal: Mapped[str] = mapped_column(String(10), default="magasin", server_default="magasin")
+    plateforme: Mapped[Optional[str]] = mapped_column(String(40))  # « Uber Eats »
     # "ok" : somme des articles = total ; "ecart" : a corriger ; "illisible" ; "erreur"
     statut: Mapped[str] = mapped_column(String(10), default="ok")
     remarques: Mapped[Optional[str]] = mapped_column(String(500))

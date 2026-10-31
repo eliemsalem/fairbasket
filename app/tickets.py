@@ -216,6 +216,8 @@ def _enregistrer(db: Session, user: User, data: bytes, fichier_nom: str, media_t
     achete_le = _date_achat(d)
     total = _dec(d.get("total"))
     remises = _dec(d.get("remises_globales")) or Decimal("0")
+    frais = _dec(d.get("frais")) or Decimal("0")
+    canal = d.get("canal") if d.get("canal") in ("livraison", "drive") else "magasin"
     enseigne = store.enseigne if store else ""
     if store is not None and est_bio(d.get("enseigne") or "", d.get("magasin") or ""):
         # magasin 100 % bio : le ticket ne le dit pas, mais le produit l'est
@@ -240,7 +242,7 @@ def _enregistrer(db: Session, user: User, data: bytes, fichier_nom: str, media_t
             db.rollback()
             return Resultat(meme, doublon=True)
 
-    statut = "ok" if total is not None and abs(somme - remises - total) <= TOLERANCE else "ecart"
+    statut = "ok" if total is not None and abs(somme + frais - remises - total) <= TOLERANCE else "ecart"
     # adresse absente du ticket : l'app la cherche elle-meme, la personne n'a rien a saisir
     trouvee = False
     if store is not None and config.ADRESSES_AUTO and store.lat is None:
@@ -248,7 +250,8 @@ def _enregistrer(db: Session, user: User, data: bytes, fichier_nom: str, media_t
         trouvee = completer(db, store)
     receipt = Receipt(
         user_id=user.id, store=store, achete_le=achete_le, total=total, somme_articles=somme,
-        remises_globales=remises, statut=statut, remarques=(d.get("remarques") or None) and d["remarques"][:500],
+        remises_globales=remises, frais=frais, canal=canal, plateforme=(d.get("plateforme") or "")[:40] or None,
+        statut=statut, remarques=(d.get("remarques") or None) and d["remarques"][:500],
         adresse_ok=bool(d.get("adresse") or d.get("code_postal")) or trouvee or _adresse_deja_confirmee(db, user, store),
         source=TYPES_ACCEPTES[media_type], importe=importe, fichier_nom=fichier_nom[:200], file_sha256=sha,
         modele=lecture.modele, tokens_entree=lecture.tokens_entree, tokens_sortie=lecture.tokens_sortie,
@@ -280,8 +283,9 @@ def _enregistrer(db: Session, user: User, data: bytes, fichier_nom: str, media_t
 
 
 def partager_prix(db: Session, user: User, receipt: Receipt) -> None:
-    """Prix anonymes : seulement avec l'accord, seulement pour un ticket juste, sans lien vers la personne."""
-    if not (user.partage_consent and receipt.store is not None and receipt.achete_le):
+    """Prix anonymes : seulement avec l'accord, seulement pour un ticket juste, sans lien vers la personne. Pas ceux
+    d'une commande livree : ce ne sont pas les prix du magasin."""
+    if not (user.partage_consent and receipt.store is not None and receipt.achete_le) or receipt.canal == "livraison":
         return
     for it in receipt.items:
         if it.illisible or it.montant <= 0:
@@ -348,7 +352,8 @@ def corriger_ticket(db: Session, user: User, receipt: Receipt, lignes: dict, nou
                                          quantite=Decimal("1"), montant=nouvelle[1]))
     receipt.somme_articles = sum((it.montant for it in receipt.items), Decimal("0"))
     etait_ok = receipt.statut == "ok"
-    juste = receipt.total is not None and abs(receipt.somme_articles - receipt.remises_globales - receipt.total) <= TOLERANCE
+    juste = receipt.total is not None and abs(receipt.somme_articles + receipt.frais - receipt.remises_globales
+                                              - receipt.total) <= TOLERANCE
     receipt.statut = "ok" if juste else "ecart"
     if juste and not etait_ok:
         partager_prix(db, user, receipt)
