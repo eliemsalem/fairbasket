@@ -53,3 +53,65 @@ def test_propositions_d_abord_dans_le_produit_type():
         return {"hits": [{"code": "3560071599362", "product_name": "Beurre demi-sel", "brands": "Carrefour"}]}
     codebarres.propositions("Beurre demi-sel", "Carrefour", recherche, type_off="en:half-salted-butter")
     assert demandes == ['Beurre demi-sel categories_tags:"en:half-salted-butter" brands:"carrefour"']
+
+
+def test_comparer_le_meme_produit_type_d_une_enseigne_a_l_autre(db):
+    from app import assistant, stats
+
+    u = nouvel_utilisateur(db, "a@x.fr")
+    ticket(db, u, 1, "Carrefour", "2026-10-03", [_article("250G BEUR 1/2-SEL", "Beurre demi-sel 250 g", 2.65),
+                                                 _article("6 OEUFS BIO", "Œufs bio ×6", 3.10)])
+    ticket(db, u, 2, "Monoprix", "2026-10-10", [_article("PAYSAN BRETON BEUR", "Beurre demi-sel Paysan Breton 250 g",
+                                                         2.99),
+                                                _article("6 OEUFS", "Œufs ×6", 2.10)])
+    c = stats.comparaisons(db, u)
+    beurre = next(p for p in c["produits"] if p["nom"] == "Beurres demi-sel")
+    assert beurre["melange"] and beurre["unite"] == "kg" and len(beurre["ids"]) == 2
+    assert [(l["enseigne"], str(l["prix"]), l["nom"]) for l in beurre["lignes"]] == [
+        ("Carrefour", "10.60", "Beurre demi-sel"), ("Monoprix", "11.96", "Beurre demi-sel Paysan Breton")]
+    assert not any(p["nom"].startswith("Œufs") for p in c["produits"])  # bio et pas bio : pas comparables
+    assert stats.comparaisons(db, u, "paysan breton")["produits"][0]["nom"] == "Beurres demi-sel"
+    offres = assistant.chercher_prix(db, u, None, "beurre demi-sel")["offres"]
+    assert {o["produit"] for o in offres if o["source"] == "tickets"} == {"Beurre demi-sel",
+                                                                          "Beurre demi-sel Paysan Breton"}
+
+
+def test_bilan_moins_cher_ailleurs_avec_un_article_semblable(db):
+    from app import stats
+
+    u = nouvel_utilisateur(db, "a@x.fr")
+    ticket(db, u, 1, "Carrefour", "2026-10-03", [_article("250G BEUR 1/2-SEL", "Beurre demi-sel 250 g", 2.65)])
+    r = ticket(db, u, 2, "Monoprix", "2026-10-10", [_article("PAYSAN BRETON BEUR",
+                                                             "Beurre demi-sel Paysan Breton 250 g", 2.99)])
+    b = stats.bilan_ticket(db, u, r)
+    assert b["compares"] == 0  # pas le meme article : pas de « payé plus que la dernière fois »
+    assert b["ailleurs"][0]["ailleurs_enseigne"] == "Carrefour"
+    assert b["ailleurs"][0]["ailleurs_produit"] == "Beurre demi-sel" and str(b["ailleurs_total"]) == "0.34"
+
+
+def test_page_comparer_dit_quel_article_est_compare(client, links):
+    from app.db import SessionLocal
+    from app.models import User
+    from tests.test_auth import connecter_admin
+
+    connecter_admin(client, links)
+    with SessionLocal() as s:
+        u = s.query(User).first()
+        ticket(s, u, 1, "Carrefour", "2026-10-03", [_article("250G BEUR 1/2-SEL", "Beurre demi-sel 250 g", 2.65)])
+        r = ticket(s, u, 2, "Monoprix", "2026-10-10", [_article("PAYSAN BRETON BEUR",
+                                                                "Beurre demi-sel Paysan Breton 250 g", 2.99)])
+        rid, pid = r.id, r.items[0].product_id
+    page = client.get("/comparer?onglet=moi").text
+    assert "Beurres demi-sel" in page and "Articles semblables" in page and "Beurre demi-sel Paysan Breton" in page
+    assert f"#p{pid}" in page  # chaque prix mene a la bonne ligne de son ticket
+    assert "(Beurre demi-sel)" in client.get(f"/tickets/{rid}").text  # bilan : moins cher ailleurs, et lequel
+
+
+def test_un_rayon_trop_large_ne_melange_pas_des_articles_differents(db):
+    from app import stats
+
+    assert rayons.precis("en:eggs") and not rayons.precis("en:beers") and not rayons.precis("en:fruits")
+    u = nouvel_utilisateur(db, "a@x.fr")
+    ticket(db, u, 1, "Carrefour", "2026-10-03", [_article("50CL HEINEKEN", "Bière Heineken 50 cl", 1.45)])
+    ticket(db, u, 2, "Monoprix", "2026-10-10", [_article("50C GOUDALE BTE", "Bière Goudale 50 cl", 1.85)])
+    assert all(p["seul"] for p in stats.comparaisons(db, u, "bière")["produits"])

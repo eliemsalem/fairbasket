@@ -425,5 +425,8 @@ EN = {
     "Merci pour votre correction": "Thanks for your fix",
     "Les noms de produits que vous corrigez, confirmez ou scannez aident tous ceux qui achètent les mêmes articles. Votre nom n'est jamais montré.":
         "Product names you fix, confirm or scan help everyone who buys the same items. Your name is never shown.",
-    "Produit type : {type}, comparé entre enseignes": "Product type: {type}, compared across chains",
+    "Produit type : {type}": "Product type: {type}",
+    "Articles semblables, même produit type : chaque ligne dit lequel.":
+        "Similar items, same product type: each line says which one.",
+    "{produit} : {prix} chez {enseigne} ({autre})": "{produit}: {prix} at {enseigne} ({autre})",
 }

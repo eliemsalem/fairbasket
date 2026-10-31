@@ -172,7 +172,7 @@ def chercher_prix(db: Session, user: User, zone: Optional[dict], produit: str, *
     produits = stats.comparaisons(db, user, produit)["produits"][:3]
     # article exact (code-barres scanne) : le meme code dans Open Prices, quel que soit le nom ecrit
     codes = set(db.scalars(select(ProductAlias.code_barres).where(
-        ProductAlias.product_id.in_([f["id"] for f in produits]), ProductAlias.code_barres.is_not(None))))
+        ProductAlias.product_id.in_([i for f in produits for i in f["ids"]]), ProductAlias.code_barres.is_not(None))))
     for code in codes:
         for p in openprices.proches(db.scalars(select(OpenPrice).where(OpenPrice.code_barres == code)
                                                .order_by(OpenPrice.jour.desc())).all(), zone, RAYONS_KM[-1]):
@@ -185,7 +185,8 @@ def chercher_prix(db: Session, user: User, zone: Optional[dict], produit: str, *
     for f in produits:
         for l in f["lignes"]:
             # prix des tickets deja ramene a la piece, au kilo ou au litre quand l'unite est connue
-            offres.append(_offre("tickets", f["nom"], float(l["prix"]), zone, store=l.get("store"),
+            offres.append(_offre("tickets", l["nom"] if f["melange"] else f["nom"], float(l["prix"]), zone,
+                                 store=l.get("store"),
                                  enseigne=l["enseigne"], prix_unitaire=float(l["prix"]) if f["unite"] else None,
                                  unite=f["unite"], date=l["date"].date().isoformat()))
     for p in stats.communaute(db, user, produit)[:3]:
@@ -328,7 +329,7 @@ def ajouter_a_ma_liste(db: Session, user: User, zone: Optional[dict], produit: s
 def plus_sain(db: Session, user: User, zone: Optional[dict], produit: str, **_) -> dict:
     """Mieux note (Nutri-Score) que ce que la personne achete : d'abord ses articles scannes et leur rayon exact,
     sinon le rayon de ce produit chez Open Food Facts. Avec le prix quand on le connait."""
-    ids = [f["id"] for f in stats.comparaisons(db, user, produit)["produits"][:3]]
+    ids = [i for f in stats.comparaisons(db, user, produit)["produits"][:3] for i in f["ids"]]
     actuel, mieux = None, []
     for a in db.scalars(select(ProductAlias).where(ProductAlias.product_id.in_(ids),
                                                    ProductAlias.code_barres.is_not(None))):

@@ -20,6 +20,8 @@ from sqlalchemy.orm import Session
 
 log = logging.getLogger("fairbasket.rayons")
 FICHIER = Path(__file__).resolve().parent / "data" / "rayons_fr.json"
+PRECIS = 20  # au-dela de 20 sous-rayons (« Fruits » 124, « Fromages » 216, « Bières » 41), un rayon est trop
+# large pour comparer entre eux des articles differents ; « Œufs » (10), « Tomates » (6), « Bananes » (1) le permettent
 VIDES = {"de", "du", "des", "la", "le", "les", "à", "a", "au", "aux", "et", "en", "d", "l", "x", "avec", "pour", "sur",
          "un", "une", "pièce", "pièces", "pce"}
 
@@ -37,16 +39,30 @@ def mots(texte: str) -> list:
 
 @lru_cache(maxsize=1)
 def _dictionnaire() -> tuple:
-    """(noms ranges par leur premier mot, id -> nom affiche)."""
+    """(noms ranges par leur premier mot, id -> nom affiche, id -> nombre de sous-rayons)."""
     rayons = json.loads(FICHIER.read_text(encoding="utf-8"))["rayons"]
-    par_premier, affiche = defaultdict(list), {}
+    par_premier, affiche, enfants = defaultdict(list), {}, defaultdict(set)
     for ident, r in rayons.items():
         affiche[ident] = r["fr"][0][:1].upper() + r["fr"][0][1:]
+        for parent in r["parents"]:
+            enfants[parent].add(ident)
         for nom in r["fr"]:
             m = tuple(mots(nom))
             if m:
                 par_premier[m[0]].append((m, ident, r["n"]))
-    return par_premier, affiche
+
+    def descendants(ident, vus):
+        for e in enfants.get(ident, ()):
+            if e not in vus:
+                vus.add(e)
+                descendants(e, vus)
+        return vus
+    return par_premier, affiche, {ident: len(descendants(ident, set())) for ident in rayons}
+
+
+def precis(type_off: str) -> bool:
+    """Assez precis pour comparer entre eux des articles differents de ce rayon."""
+    return _dictionnaire()[2].get(type_off, PRECIS + 1) <= PRECIS
 
 
 def _dans(petite: tuple, grande: list) -> bool:
@@ -61,7 +77,7 @@ def type_de(nom: str) -> Optional[tuple]:
     m = mots(nom)
     if not m:
         return None
-    par_premier, affiche = _dictionnaire()
+    par_premier, affiche, _ = _dictionnaire()
     bons = [n for premier in set(m) for n in par_premier.get(premier, ()) if _dans(n[0], m)]
     if not bons:
         return None
@@ -71,7 +87,7 @@ def type_de(nom: str) -> Optional[tuple]:
 
 def type_des_categories(categories: list) -> Optional[tuple]:
     """Le rayon exact d'un article scanne (ses categories Open Food Facts), le plus precis connu."""
-    _, affiche = _dictionnaire()
+    affiche = _dictionnaire()[1]
     for c in reversed(categories or []):
         if c in affiche:
             return c, affiche[c]

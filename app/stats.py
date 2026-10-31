@@ -10,7 +10,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
 from .models import Receipt, ReceiptItem, User
-from .unites import format_produit, prix_par_unite
+from .unites import cle_comparaison, format_produit, nom_du_type, prix_par_unite
 
 ZERO = Decimal("0")
 
@@ -133,14 +133,19 @@ def tableau_de_bord(db: Session, user: User, periode: str = "an", aujourd_hui: O
     return t
 
 
-def _derniers_prix(tickets, ticket_de: Optional[dict] = None, unites: Optional[dict] = None) -> tuple[dict, dict, dict]:
+def _derniers_prix(tickets, ticket_de: Optional[dict] = None, unites: Optional[dict] = None,
+                   detail: Optional[dict] = None) -> tuple[dict, dict, dict]:
     """produit -> enseigne -> (date, prix unitaire) ; produit -> nom ; produit -> nombre d'achats.
     Si `ticket_de` est fourni, il recoit (produit, enseigne) -> ticket ou ce dernier prix a ete paye.
-    Si `unites` est fourni : prix paye ramene a la piece, au kilo ou au litre, et un meme produit en formats
-    differents regroupe (« Avocat bio » et « Avocats bio ×2 ») ; le produit est alors une cle (produit, unite),
-    et `unites` recoit cle -> (unite, paquets)."""
+    Si `unites` est fourni : prix paye ramene a la piece, au kilo ou au litre, et les articles du meme produit type
+    regroupes, quelle que soit l'enseigne (« 250G BEUR 1/2-SEL » chez Carrefour et « Beurre demi-sel Paysan
+    Breton » chez Monoprix sont des « Beurres demi-sel », « Avocat bio » et « Avocats bio ×2 » des avocats bio) ;
+    le produit est alors une cle (produit, unite), et `unites` recoit cle -> (unite, paquets).
+    Si `detail` est fourni, il recoit (cle, enseigne) -> (produit, nom) du dernier achat, et cle -> {ids, noms}
+    des produits du groupe."""
     derniers, noms, achats = defaultdict(dict), {}, defaultdict(int)
-    groupes = {}  # (nom sans format, unite) -> premier produit vu, qui represente le groupe
+    groupes = {}  # (produit type ou nom sans format, unite) -> premier produit vu, qui represente le groupe
+    membres = defaultdict(dict)  # cle -> nom sans format (au singulier) -> nom affiche
     for r in sorted(tickets, key=lambda r: r.achete_le):
         if not r.store or r.store.enseigne in ("Inconnue", "Marché", "Commerce"):
             continue
@@ -153,10 +158,11 @@ def _derniers_prix(tickets, ticket_de: Optional[dict] = None, unites: Optional[d
             else:
                 fmt = format_produit(nom, it.product.categorie)
                 prix, unite = prix_par_unite(it, fmt)
+                cle = cle_comparaison(nom, fmt, it.product.type_off)
                 # cle : (premier produit vu du groupe, unite) ; un meme produit vendu au kilo et en barquette
                 # sans poids connu fait deux groupes
-                pid = (groupes.setdefault((fmt.cle, unite), pid), unite)
-                nom = noms.get(pid, fmt.nom)
+                pid = (groupes.setdefault((cle, unite), pid), unite)
+                nom = noms.get(pid, nom_du_type(it.product.type_nom or fmt.nom, nom) if cle[0] == "type" else fmt.nom)
                 deja = unites.get(pid, (unite, False))
                 unites[pid] = (unite, deja[1] or fmt.paquet or it.quantite != 1)
             if prix:
@@ -165,6 +171,14 @@ def _derniers_prix(tickets, ticket_de: Optional[dict] = None, unites: Optional[d
                     ticket_de[(pid, r.store.enseigne)] = r.id
                 noms[pid] = nom
                 achats[pid] += 1
+                if unites is not None:
+                    membres[pid].setdefault(fmt.cle, fmt.nom)
+                    if detail is not None:
+                        detail[(pid, r.store.enseigne)] = (it.product_id, fmt.nom)
+                        detail.setdefault(pid, {"ids": set(), "noms": membres[pid]})["ids"].add(it.product_id)
+    for pid, m in membres.items():
+        if len(m) == 1:  # un seul produit dans le groupe : son nom, plus precis que celui du produit type
+            noms[pid] = next(iter(m.values()))
     return derniers, noms, achats
 
 
@@ -178,9 +192,10 @@ def comparaisons(db: Session, user: User, recherche: str = "") -> dict:
         select(Receipt).where(Receipt.user_id == user.id, Receipt.achete_le.is_not(None))
         .options(selectinload(Receipt.items).selectinload(ReceiptItem.product), selectinload(Receipt.store))
     ).all()
-    ticket_de, unites = {}, {}
-    # prix paye ramene a la piece, au kilo ou au litre : un lot de 2 avocats se compare a un avocat seul
-    derniers, noms, achats = _derniers_prix(tickets, ticket_de, unites)
+    ticket_de, unites, detail = {}, {}, {}
+    # prix paye ramene a la piece, au kilo ou au litre : un lot de 2 avocats se compare a un avocat seul ; et le
+    # meme produit type d'une enseigne a l'autre
+    derniers, noms, achats = _derniers_prix(tickets, ticket_de, unites, detail)
     produits = {p.id: p for p in db.scalars(select(Product).where(Product.id.in_([k[0] for k in derniers])))}
     produit = lambda k: produits[k[0]]  # cle : (produit, unite)
 
@@ -188,17 +203,22 @@ def comparaisons(db: Session, user: User, recherche: str = "") -> dict:
 
     def fiche(pid):
         lignes = sorted(({"enseigne": e, "prix": p, "date": d, "ticket": ticket_de.get((pid, e)),
-                          "store": magasin_du_ticket.get(ticket_de.get((pid, e)))}
+                          "store": magasin_du_ticket.get(ticket_de.get((pid, e))),
+                          "produit": detail[(pid, e)][0], "nom": detail[(pid, e)][1]}
                          for e, (d, p) in derniers[pid].items()), key=lambda l: l["prix"])
         unite, paquets = unites.get(pid, ("pièce", False))
-        # « / pièce » seulement si des lots ou des quantites ont ete ramenes a l'unite
-        return {"id": pid[0], "nom": noms[pid], "achats": achats[pid], "lignes": lignes, "seul": len(lignes) == 1,
+        # « / pièce » seulement si des lots ou des quantites ont ete ramenes a l'unite ; « melange » quand des
+        # articles differents du meme produit type se comparent : chaque ligne dit alors lequel
+        return {"id": pid[0], "ids": sorted(detail[pid]["ids"]), "nom": noms[pid], "achats": achats[pid],
+                "lignes": lignes, "seul": len(lignes) == 1, "melange": len(detail[pid]["noms"]) > 1,
                 "unite": None if unite == "article" or (unite == "pièce" and not paquets) else unite}
 
     if recherche.strip():
-        # a pertinence egale : d'abord ce qui se compare (plusieurs enseignes), puis le plus achete
-        ids = classer(recherche, list(derniers), cle=lambda pid: (noms[pid], produit(pid).famille or "",
-                                                                  produit(pid).categorie or ""),
+        # a pertinence egale : d'abord ce qui se compare (plusieurs enseignes), puis le plus achete ; le nom de
+        # chaque article du groupe compte (« Paysan Breton » retrouve les « Beurres demi-sel »)
+        ids = classer(recherche, list(derniers),
+                      cle=lambda pid: (" ".join([noms[pid], *detail[pid]["noms"].values()]),
+                                       produit(pid).famille or "", produit(pid).categorie or ""),
                       ensuite=lambda pid: (len(derniers[pid]) >= 2) * 1000 + achats[pid])
         resultat = [fiche(pid) for pid in ids[:30]]
     else:
@@ -324,8 +344,9 @@ def bilan_ticket(db: Session, user: User, receipt: Receipt) -> dict:
     ).all()
     quand = receipt.achete_le or datetime.max
     enseigne = receipt.store.enseigne if receipt.store else None
-    # (nom sans format, unite) -> liste (date, enseigne, prix a l'unite), du plus ancien au plus recent
-    historique = defaultdict(list)
+    # (nom sans format, unite) -> liste (date, enseigne, prix a l'unite), du plus ancien au plus recent ; et par
+    # produit type pour « moins cher ailleurs » (un autre beurre demi-sel 250 g compte)
+    historique, par_type = defaultdict(list), defaultdict(list)
     for r in sorted(tickets, key=lambda r: r.achete_le):
         if not r.store or r.store.enseigne in ("Inconnue", "Marché", "Commerce"):
             continue
@@ -336,6 +357,8 @@ def bilan_ticket(db: Session, user: User, receipt: Receipt) -> dict:
             prix, unite = prix_par_unite(it, fmt, arrondi=False)
             if prix:
                 historique[(fmt.cle, unite)].append((r.achete_le, r.store.enseigne, prix))
+                par_type[(cle_comparaison(it.product.nom, fmt, it.product.type_off), unite)].append(
+                    (r.achete_le, r.store.enseigne, prix, fmt.nom))
 
     lignes, compares = [], 0
     for it in receipt.items:
@@ -346,8 +369,8 @@ def bilan_ticket(db: Session, user: User, receipt: Receipt) -> dict:
         if not prix:
             continue
         avant = [h for h in historique.get((fmt.cle, unite), []) if h[0] < quand]
-        apres_ou_meme = [h for h in historique.get((fmt.cle, unite), [])]
-        if not apres_ou_meme:
+        semblables = par_type.get((cle_comparaison(it.product.nom, fmt, it.product.type_off), unite), [])
+        if not semblables:
             continue
         compares += bool(avant)
         unites = it.montant / prix  # combien de pieces, de kilos ou de litres sur la ligne
@@ -361,13 +384,14 @@ def bilan_ticket(db: Session, user: User, receipt: Receipt) -> dict:
                          pct=round((prix - p) / p * 100) if p else None)
         # le moins cher vu dans une autre enseigne (dernier prix de chaque enseigne)
         derniers = {}
-        for d, ens, p in apres_ou_meme:
+        for d, ens, p, nom in semblables:
             if ens != enseigne:
-                derniers[ens] = p
+                derniers[ens] = (p, nom)
         if derniers:
-            ens, p = min(derniers.items(), key=lambda kv: kv[1])
+            ens, (p, nom) = min(derniers.items(), key=lambda kv: kv[1][0])
             if prix - p > SEUIL_ECART / max(unites, Decimal("1")):
                 ligne.update(ailleurs_enseigne=ens, ailleurs_prix=p,
+                             ailleurs_produit=nom if nom != fmt.nom else None,
                              ailleurs_gain=((prix - p) * unites).quantize(Decimal("0.01")))
         lignes.append(ligne)
 

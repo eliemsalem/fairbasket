@@ -21,7 +21,7 @@ from .models import OpenPrice, Product, User
 from .openprices import prix_au_kilo, proches, unite_kilo
 from .recherche import score
 from .enseignes import reconnaitre
-from .unites import format_produit, prix_par_unite
+from .unites import cle_comparaison, format_produit, prix_par_unite
 
 log = logging.getLogger("fairbasket.panier")
 CANDIDATS_MIN = 0.35   # assez large pour retrouver les candidats, Claude trie ensuite
@@ -71,7 +71,7 @@ def enseigne_du_magasin(nom: str) -> str:
 
 def _a_l_unite(tickets: list) -> tuple[dict, dict]:
     """Ce que la personne a paye, ramene a la piece, au kilo ou au litre :
-    (nom sans format, unite) -> enseigne -> (date, prix a l'unite) ; et pour chaque produit, sa cle et la
+    (produit type ou nom sans format, unite) -> enseigne -> (date, prix a l'unite) ; et pour chaque produit, sa cle et la
     quantite achetee d'habitude (2 pieces, 0,5 kg…), pour remettre un prix a l'unite a l'echelle de l'article."""
     prix, achat = defaultdict(dict), {}
     for r in sorted(tickets, key=lambda r: r.achete_le):
@@ -84,7 +84,7 @@ def _a_l_unite(tickets: list) -> tuple[dict, dict]:
             unitaire, unite = prix_par_unite(it, fmt, arrondi=False)
             if not unitaire:
                 continue
-            cle = (fmt.cle, unite)
+            cle = (cle_comparaison(it.product.nom, fmt, it.product.type_off), unite)
             prix[cle][r.store.enseigne] = (r.achete_le, unitaire)
             achat[it.product_id] = (cle, it.montant / it.quantite / unitaire if it.quantite else fmt.quantite)
     return prix, achat
@@ -105,7 +105,7 @@ def comparer_panier(db: Session, user: User, articles: list, tickets: list, poid
             cle, qte = achat[pid]
         else:
             fmt = format_produit(nom)
-            cle, qte = (fmt.cle, fmt.unite), fmt.quantite
+            cle, qte = (cle_comparaison(nom, fmt), fmt.unite), fmt.quantite
         cles.append(cle)
         quantites.append(qte)
     derniers = {i: {e: (jour, (pu * quantites[i]).quantize(Decimal("0.01"))) for e, (jour, pu) in a_l_unite[c].items()}

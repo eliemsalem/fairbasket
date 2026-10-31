@@ -9,7 +9,8 @@ from dataclasses import dataclass
 from decimal import Decimal
 from typing import Optional
 
-from .tickets import cle_produit
+from .rayons import mots, precis, type_de
+from .tickets import cle_produit, nom_bio
 
 NOMBRE = re.compile(r"(?:^|\s)[×x]\s?(\d+)(?=\s|$)", re.IGNORECASE)
 MESURE = re.compile(r"(?:^|\s)(\d+(?:[.,]\d+)?)\s?(kg|g|cl|ml|l)(?=\s|$)", re.IGNORECASE)
@@ -63,3 +64,18 @@ def prix_par_unite(item, fmt: Format, arrondi: bool = True) -> tuple[Optional[De
     if prix is not None and arrondi:
         prix = prix.quantize(Decimal("0.01"))
     return prix, "kg" if item.poids_kg else fmt.unite
+
+
+def cle_comparaison(nom: str, fmt: Format, type_off: Optional[str] = None) -> tuple:
+    """Ce qui se compare d'une enseigne a l'autre : le meme produit type (rayon Open Food Facts, rayons.py) quand
+    il est assez precis, le bio a part ; sinon le meme nom sans son format (« Avocat bio »). type_off : celui du
+    produit ; None quand il n'est pas encore classe (alors d'apres le nom), "" quand aucun rayon ne correspond."""
+    if type_off is None:
+        t = type_de(nom)
+        type_off = t[0] if t else ""
+    return ("type", type_off, nom_bio(nom)) if type_off and precis(type_off) else ("nom", fmt.cle)
+
+
+def nom_du_type(type_nom: str, nom: str) -> str:
+    """« Œufs » pour des œufs bio -> « Œufs bio »."""
+    return f"{type_nom} bio" if nom_bio(nom) and "bio" not in mots(type_nom) else type_nom

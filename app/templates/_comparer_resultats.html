@@ -19,10 +19,11 @@
     {% for p in c.produits %}
       <div class="card" style="display:flex;flex-direction:column;gap:8px">
         <div style="display:flex;justify-content:space-between;gap:10px;align-items:baseline"><h2>{{ p.nom }}</h2><span class="small" style="white-space:nowrap">{{ _("{n} achat(s)", n=p.achats) }}</span></div>
+        {% if p.melange %}<span class="small" style="margin-top:-6px">{{ _("Articles semblables, même produit type : chaque ligne dit lequel.") }}</span>{% endif %}
         {% for l in p.lignes %}
-          <a href="/tickets/{{ l.ticket }}?retour={{ ('/comparer?onglet=moi&q=' ~ (q|urlencode))|urlencode }}#p{{ p.id }}" class="ligne-ticket" aria-label="{{ _('Voir le ticket du {date} chez {enseigne}', date=l.date.strftime('%d/%m/%y'), enseigne=l.enseigne) }}">
+          <a href="/tickets/{{ l.ticket }}?retour={{ ('/comparer?onglet=moi&q=' ~ (q|urlencode))|urlencode }}#p{{ l.produit or p.id }}" class="ligne-ticket" aria-label="{{ _('Voir le ticket du {date} chez {enseigne}', date=l.date.strftime('%d/%m/%y'), enseigne=l.enseigne) }}">
             <span class="dot" style="{{ 'width:10px;height:10px;flex:none;background:' ~ (l.enseigne|couleur) }}"></span>
-            <span class="grow">{{ l.enseigne }} <span class="small">· {{ l.date.strftime('%d/%m/%y') }}</span></span>
+            <span class="grow">{{ l.enseigne }} <span class="small">· {{ l.date.strftime('%d/%m/%y') }}</span>{% if p.melange %}<br><span class="small">{{ l.nom }}</span>{% endif %}</span>
             {% if loop.first and not p.seul %}<span class="badge">{{ _("le moins cher") }}</span>{% endif %}
             <span class="mono" style="font-weight:{{ 700 if loop.first else 500 }}">{{ l.prix|euros }}{% if p.unite %}<span class="small"> / {{ _(p.unite) }}</span>{% endif %}</span>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex:none;opacity:.5"><path d="M9 5l7 7-7 7"/></svg>
